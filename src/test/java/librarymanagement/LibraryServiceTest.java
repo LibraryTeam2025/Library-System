@@ -17,7 +17,7 @@ public class LibraryServiceTest {
         service.addBook(book);
         List<Book> results = service.searchBook("Java");
         assertEquals(1, results.size());
-        assertEquals("book", results.get(0).getTitle());
+        assertEquals("Java book", results.get(0).getTitle());
     }
 
     @Test
