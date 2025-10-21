@@ -8,22 +8,22 @@ public class AdminTest {
 
     @Test
     void testLoginSuccess() {
-        Admin admin = new Admin("admin", "1234");
-        assertTrue(admin.login("admin", "1234"));
+        Admin admin = new Admin("soft", "123");
+        assertTrue(admin.login("soft", "123"));
         assertTrue(admin.isLoggedIn());
     }
 
     @Test
     void testLoginFailure() {
-        Admin admin = new Admin("admin", "1234");
+        Admin admin = new Admin("soft", "123");
         assertFalse(admin.login("wrong", "123"));
         assertFalse(admin.isLoggedIn());
     }
 
     @Test
     void testLogout() {
-        Admin admin = new Admin("admin", "1234");
-        admin.login("admin", "1234");
+        Admin admin = new Admin("soft", "123");
+        admin.login("soft", "123");
         admin.logout();
         assertFalse(admin.isLoggedIn());
     }

@@ -11,7 +11,7 @@ public class LibraryApp {
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        Admin admin = new Admin("admin", "1234");
+        Admin admin = new Admin("soft", "123");
         LibraryService service = new LibraryService();
 
         System.out.println("Welcome to Library Management System!");
@@ -20,7 +20,7 @@ public class LibraryApp {
             System.out.println("\n1. Login\n2. Add Book\n3. Search Book\n4. Logout\n5. Exit");
             System.out.print("Enter choice: ");
             int choice = sc.nextInt();
-            sc.nextLine(); // consume newline
+            sc.nextLine();
 
             switch (choice) {
                 case 1:
@@ -29,15 +29,15 @@ public class LibraryApp {
                     System.out.print("Password: ");
                     String p = sc.nextLine();
                     if (admin.login(u, p)) {
-                        System.out.println("✅ Login successful.");
+                        System.out.println("Login successful.");
                     } else {
-                        System.out.println("❌ Invalid credentials.");
+                        System.out.println("Invalid credentials.");
                     }
                     break;
 
                 case 2:
                     if (!admin.isLoggedIn()) {
-                        System.out.println("⚠️ Please login first!");
+                        System.out.println("Please login first!");
                         break;
                     }
                     System.out.print("Title: ");
@@ -47,7 +47,7 @@ public class LibraryApp {
                     System.out.print("ISBN: ");
                     String isbn = sc.nextLine();
                     service.addBook(new Book(title, author, isbn));
-                    System.out.println("✅ Book added.");
+                    System.out.println("Book added.");
                     break;
 
                 case 3:
@@ -63,7 +63,7 @@ public class LibraryApp {
 
                 case 4:
                     admin.logout();
-                    System.out.println("👋 Logged out.");
+                    System.out.println("Logged out.");
                     break;
 
                 case 5:
