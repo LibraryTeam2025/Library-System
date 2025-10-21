@@ -13,7 +13,7 @@ public class BookTest {
 
     @Test
     void testBookCreation() {
-        Book book = new Book("books", "Yaman", "111");
+        Book book = new Book("book", "Yaman", "111");
         assertEquals("book", book.getTitle());
         assertEquals("Yaman", book.getAuthor());
         assertEquals("111", book.getIsbn());

@@ -13,7 +13,7 @@ public class LibraryServiceTest {
     @Test
     void testAddAndSearchBook() {
         LibraryService service = new LibraryService();
-        Book book = new Book("book", "Yaman", "111");
+        Book book = new Book("Java book", "Yaman", "111");
         service.addBook(book);
         List<Book> results = service.searchBook("Java");
         assertEquals(1, results.size());
