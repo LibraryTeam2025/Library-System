@@ -1,54 +1,72 @@
 package librarymanagement.application;
 
 import librarymanagement.domain.Book;
-import librarymanagement.domain.User;
-import librarymanagement.domain.Loan;
-import librarymanagement.domain.Fine;
-import java.util.stream.Collectors;
+import librarymanagement.domain.LibraryUser;
+import librarymanagement.domain.BorrowedBook;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 public class LibraryService {
 
     private List<Book> books = new ArrayList<>();
-    private List<Loan> loans = new ArrayList<>();
 
-    public void addBook(Book book) { books.add(book); }
+    // إضافة كتاب جديد للمكتبة
+    public void addBook(Book book) {
+        books.add(book);
+        System.out.println("Book added: " + book);
+    }
 
+    // البحث عن كتاب حسب العنوان، المؤلف، أو ISBN
     public List<Book> searchBook(String keyword) {
-        return books.stream()
-                .filter(b -> b.getTitle().toLowerCase().contains(keyword.toLowerCase())
-                        || b.getAuthor().toLowerCase().contains(keyword.toLowerCase())
-                        || b.getIsbn().equalsIgnoreCase(keyword))
-                .collect(Collectors.toList()); // <-- change here
+        List<Book> results = new ArrayList<>();
+        for (Book b : books) {
+            if (b.getTitle().toLowerCase().contains(keyword.toLowerCase())
+                    || b.getAuthor().toLowerCase().contains(keyword.toLowerCase())
+                    || b.getIsbn().equalsIgnoreCase(keyword)) {
+                results.add(b);
+            }
+        }
+        return results;
     }
 
-    public List<Book> getAllBooks() { return books; }
+    // عرض كل الكتب
+    public List<Book> getAllBooks() {
+        return books;
+    }
 
-    // Borrow book
-    public Loan borrowBook(User user, Book book) {
-        if(!book.isAvailable()) throw new RuntimeException("Book not available");
-        if(user.hasOverdue()) throw new RuntimeException("User has overdue books");
-        if(user.hasUnpaidFines()) throw new RuntimeException("User has unpaid fines");
+    // استعارة كتاب من قبل مستخدم
+    public void borrowBook(LibraryUser user, Book book) {
+        if (!books.contains(book)) {
+            System.out.println("Book not found in library: " + book.getTitle());
+            return;
+        }
 
-        Loan loan = new Loan(user, book);
+        if (!book.isAvailable()) {
+            System.out.println("Book is not available: " + book.getTitle());
+            return;
+        }
+
+        BorrowedBook borrowedBook = new BorrowedBook(book);
+        user.getBorrowedBooks().add(borrowedBook);
         book.setAvailable(false);
-        loans.add(loan);
-        return loan;
+        System.out.println(user.getClass().getSimpleName() + " borrowed: " + book.getTitle()
+                + ", due date: " + borrowedBook.getDueDate());
+    }
+    public void checkOverdueBooks(LibraryUser user) {
+        List<BorrowedBook> borrowed = user.getBorrowedBooks();
+        for (BorrowedBook bb : borrowed) {
+            if (!bb.isReturned() && LocalDate.now().isAfter(bb.getDueDate())) {
+                System.out.println("Overdue book: " + bb.getBook().getTitle()
+                        + " | Due date: " + bb.getDueDate());
+                user.addFine(5); // مثال: غرامة 5 وحدات لكل كتاب متأخر
+            }
+        }
     }
 
-    // Pay fine
-    public void payFine(User user, int amount) {
-        user.getFines().forEach(f -> {
-            if(!f.isPaid()) f.pay(amount);
-        });
+    public void payFine(LibraryUser user, double amount) {
+        user.payFine(amount);
     }
 
-    // Check overdue books
-    public List<Loan> checkOverdueBooks() {
-        List<Loan> overdue = new ArrayList<>();
-        for(Loan l : loans) if(l.isOverdue()) overdue.add(l);
-        return overdue;
-    }
 }

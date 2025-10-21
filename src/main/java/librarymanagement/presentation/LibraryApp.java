@@ -2,6 +2,7 @@ package librarymanagement.presentation;
 
 import librarymanagement.domain.Admin;
 import librarymanagement.domain.Book;
+import librarymanagement.domain.LibraryUser;
 import librarymanagement.application.LibraryService;
 
 import java.util.List;
@@ -13,12 +14,21 @@ public class LibraryApp {
         Scanner sc = new Scanner(System.in);
         Admin admin = new Admin("soft", "123");
         LibraryService service = new LibraryService();
+        LibraryUser user = new LibraryUser("Student");
 
-        System.out.println("Welcome to Library Management System!");
+        System.out.println("Welcome to Library Management System ♥ ");
 
         while (true) {
-            System.out.println("\n1. Login\n2. Add Book\n3. Search Book\n4. Logout\n5. Exit");
+            System.out.println("\n1. Login");
+            System.out.println("2. Add Book");
+            System.out.println("3. Search Book");
+            System.out.println("4. Borrow Book");
+            System.out.println("5. Check Overdue Books");
+            System.out.println("6. Pay Fine");
+            System.out.println("7. Logout");
+            System.out.println("8. Exit");
             System.out.print("Enter choice: ");
+
             int choice = sc.nextInt();
             sc.nextLine();
 
@@ -47,7 +57,6 @@ public class LibraryApp {
                     System.out.print("ISBN: ");
                     String isbn = sc.nextLine();
                     service.addBook(new Book(title, author, isbn));
-                    System.out.println("Book added.");
                     break;
 
                 case 3:
@@ -57,16 +66,47 @@ public class LibraryApp {
                     if (results.isEmpty()) {
                         System.out.println("No results found.");
                     } else {
+                        System.out.println("Search results:");
                         results.forEach(System.out::println);
                     }
                     break;
 
                 case 4:
+                    System.out.println("Available books:");
+                    List<Book> allBooks = service.getAllBooks();
+                    for (int i = 0; i < allBooks.size(); i++) {
+                        Book b = allBooks.get(i);
+                        if (b.isAvailable()) {
+                            System.out.println((i + 1) + ". " + b);
+                        }
+                    }
+                    System.out.print("Enter book number to borrow: ");
+                    int bookIndex = sc.nextInt() - 1;
+                    sc.nextLine();
+                    if (bookIndex >= 0 && bookIndex < allBooks.size()) {
+                        Book bookToBorrow = allBooks.get(bookIndex);
+                        service.borrowBook(user, bookToBorrow);
+                    } else {
+                        System.out.println("Invalid book number.");
+                    }
+                    break;
+
+                case 5:
+                    service.checkOverdueBooks(user);
+                    break;
+                case 6:
+                    System.out.println("Current fine balance: " + user.getFineBalance());
+                    System.out.print("Enter amount to pay: ");
+                    double amt = sc.nextDouble();
+                    sc.nextLine();
+                    service.payFine(user, amt);
+                    break;
+                case 7:
                     admin.logout();
                     System.out.println("Logged out.");
                     break;
 
-                case 5:
+                case 8:
                     System.out.println("Bye!");
                     sc.close();
                     return;
@@ -76,6 +116,4 @@ public class LibraryApp {
             }
         }
     }
-
-
 }
