@@ -29,7 +29,9 @@ public class BorrowedBook {
         returned = true;
         book.setAvailable(true);
     }
-
+    public boolean isOverdue() {
+        return !returned && LocalDate.now().isAfter(dueDate);
+    }
     @Override
     public String toString() {
         return book.getTitle() + " borrowed on " + borrowDate + ", Book loan expires " + dueDate;

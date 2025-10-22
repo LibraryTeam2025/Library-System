@@ -14,12 +14,6 @@ public class LibraryUser {
         return name;
     }
 
-
-
-
-
-
-
     public LibraryUser(String name) {
         this.name = name;
     }

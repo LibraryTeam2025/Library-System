@@ -60,7 +60,7 @@ public class BookTest {
 
     @Test
     void testLibraryServiceBorrowBook() {
-        EmailService emailService = new EmailService(); // 👈 أضفنا EmailService
+        EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
 
         LibraryUser user = new LibraryUser("Roa");

@@ -10,8 +10,6 @@ public class EmailService {
     public void sendEmail(String username, String message) {
         String fullMessage = "To: " + username + " | Message: " + message;
         sentMessages.add(fullMessage);
-
-        // إضافة طباعة لتتأكد على الشاشة
         System.out.println(fullMessage);
     }
 
