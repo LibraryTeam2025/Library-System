@@ -17,6 +17,9 @@ public class BorrowedBook {
 
     public Book getBook() { return book; }
     public LocalDate getDueDate() { return dueDate; }
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
+    }
 
     public boolean isReturned() {
         return returned;

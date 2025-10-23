@@ -2,12 +2,13 @@ package librarymanagement;
 
 import librarymanagement.domain.Admin;
 import librarymanagement.domain.BorrowedBook;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 import librarymanagement.domain.Book;
 import librarymanagement.domain.LibraryUser;
 import librarymanagement.application.LibraryService;
+import librarymanagement.application.EmailService;
+import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.*;
 
 public class AdminTest {
 
@@ -35,7 +36,8 @@ public class AdminTest {
 
     @Test
     void testBorrowBook() {
-        LibraryService service = new LibraryService();
+        EmailService emailService = new EmailService();
+        LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
         Book book = new Book("book", "Author", "123");
 
@@ -48,7 +50,8 @@ public class AdminTest {
 
     @Test
     void testOverdueBookAddsFine28Days() {
-        LibraryService service = new LibraryService();
+        EmailService emailService = new EmailService();
+        LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
         Book book = new Book("Java", "Author", "001");
 
@@ -58,19 +61,19 @@ public class AdminTest {
         BorrowedBook bb = user.getBorrowedBooks().get(0);
 
         service.checkOverdueBooks(user);
-        assertEquals(0, user.getFineBalance());
+        assertEquals(0, user.getFineBalance()); // لأن اليوم لم يتجاوز 28 يوم
     }
-
 
     @Test
     void testPayFine() {
-        LibraryService service = new LibraryService();
+        EmailService emailService = new EmailService();
+        LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
 
         user.addFine(10);
         service.payFine(user, 4);
-
         assertEquals(6, user.getFineBalance());
+
         service.payFine(user, 6);
         assertEquals(0, user.getFineBalance());
     }

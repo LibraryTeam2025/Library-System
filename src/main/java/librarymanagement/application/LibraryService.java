@@ -9,8 +9,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class LibraryService {
-
+    private EmailService emailService;
     private List<Book> books = new ArrayList<>();
+
+    // Constructor
+    public LibraryService(EmailService emailService) {
+        this.emailService = emailService;
+    }
 
     // إضافة كتاب جديد للمكتبة
     public void addBook(Book book) {
@@ -54,19 +59,33 @@ public class LibraryService {
         System.out.println(user.getClass().getSimpleName() + " borrowed: " + book.getTitle()
                 + ", due date: " + borrowedBook.getDueDate());
     }
+
+    // التحقق من الكتب المتأخرة وإضافة غرامة
     public void checkOverdueBooks(LibraryUser user) {
         List<BorrowedBook> borrowed = user.getBorrowedBooks();
         for (BorrowedBook bb : borrowed) {
             if (!bb.isReturned() && LocalDate.now().isAfter(bb.getDueDate())) {
                 System.out.println("Overdue book: " + bb.getBook().getTitle()
                         + " | Due date: " + bb.getDueDate());
-                user.addFine(5); // مثال: غرامة 5 وحدات لكل كتاب متأخر
+                user.addFine(5); // مثال: غرامة 5 لكل كتاب متأخر
             }
         }
     }
 
+    // دفع الغرامة
     public void payFine(LibraryUser user, double amount) {
         user.payFine(amount);
     }
 
+    // إرسال تذكير بالكتب المتأخرة
+    public void sendReminder(LibraryUser user) {
+        long overdueCount = user.getBorrowedBooks().stream()
+                .filter(bb -> !bb.isReturned() && LocalDate.now().isAfter(bb.getDueDate()))
+                .count();
+
+        if (overdueCount > 0) {
+            String message = "You have " + overdueCount + " overdue book(s).";
+            emailService.sendEmail(user.getName(), message);
+        }
+    }
 }

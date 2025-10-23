@@ -1,15 +1,16 @@
 package librarymanagement;
-import librarymanagement.domain.Book;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
+import librarymanagement.domain.Book;
 import librarymanagement.domain.BorrowedBook;
 import librarymanagement.domain.LibraryUser;
 import librarymanagement.application.LibraryService;
+import librarymanagement.application.EmailService;
+
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 import java.time.LocalDate;
 
 public class BookTest {
-
 
     @Test
     void testBookCreation() {
@@ -43,14 +44,14 @@ public class BookTest {
         BorrowedBook borrowedBook = new BorrowedBook(book);
         user.getBorrowedBooks().add(borrowedBook);
 
-        assertFalse(book.isAvailable());
+        assertFalse(book.isAvailable()); // بعد استعارة الكتاب، غير متاح
         borrowedBook.returnBook();
-        assertTrue(book.isAvailable());
+        assertTrue(book.isAvailable());  // بعد إرجاع الكتاب، متاح
     }
 
     @Test
     void testBorrowedBookDueDate() {
-        Book book = new Book("Basic in python", "Yaman", "111");
+        Book book = new Book("Basic in Python", "Yaman", "111");
         BorrowedBook borrowedBook = new BorrowedBook(book);
 
         LocalDate expectedDueDate = LocalDate.now().plusDays(28);
@@ -59,7 +60,9 @@ public class BookTest {
 
     @Test
     void testLibraryServiceBorrowBook() {
-        LibraryService service = new LibraryService();
+        EmailService emailService = new EmailService(); // 👈 أضفنا EmailService
+        LibraryService service = new LibraryService(emailService);
+
         LibraryUser user = new LibraryUser("Roa");
         Book book = new Book("Java", "Yaman", "111");
         service.addBook(book);
@@ -69,5 +72,4 @@ public class BookTest {
         assertEquals(1, user.getBorrowedBooks().size());
         assertFalse(book.isAvailable());
     }
-
 }

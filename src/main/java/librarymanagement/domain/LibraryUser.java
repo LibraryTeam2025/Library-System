@@ -8,6 +8,18 @@ public class LibraryUser {
     private List<BorrowedBook> borrowedBooks = new ArrayList<>();
     private double fineBalance = 0;
 
+
+
+    public String getName() {
+        return name;
+    }
+
+
+
+
+
+
+
     public LibraryUser(String name) {
         this.name = name;
     }

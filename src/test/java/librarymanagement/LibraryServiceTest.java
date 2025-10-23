@@ -1,6 +1,7 @@
 package librarymanagement;
 
 import librarymanagement.application.LibraryService;
+import librarymanagement.application.EmailService;
 import librarymanagement.domain.Book;
 import librarymanagement.domain.BorrowedBook;
 import librarymanagement.domain.LibraryUser;
@@ -12,7 +13,9 @@ public class LibraryServiceTest {
 
     @Test
     void testAddAndSearchBook() {
-        LibraryService service = new LibraryService();
+        EmailService emailService = new EmailService();
+        LibraryService service = new LibraryService(emailService);
+
         Book book = new Book("Java book", "Yaman", "111");
         service.addBook(book);
         List<Book> results = service.searchBook("Java");
@@ -22,14 +25,18 @@ public class LibraryServiceTest {
 
     @Test
     void testSearchNoResults() {
-        LibraryService service = new LibraryService();
+        EmailService emailService = new EmailService();
+        LibraryService service = new LibraryService(emailService);
+
         List<Book> results = service.searchBook("Python");
         assertTrue(results.isEmpty());
     }
 
     @Test
     void testBorrowBook() {
-        LibraryService service = new LibraryService();
+        EmailService emailService = new EmailService();
+        LibraryService service = new LibraryService(emailService);
+
         LibraryUser user = new LibraryUser("Roa");
         Book book = new Book("book", "Author", "123");
 
@@ -42,7 +49,9 @@ public class LibraryServiceTest {
 
     @Test
     void testOverdueBookAddsFine28Days() {
-        LibraryService service = new LibraryService();
+        EmailService emailService = new EmailService();
+        LibraryService service = new LibraryService(emailService);
+
         LibraryUser user = new LibraryUser("Roa");
         Book book = new Book("book", "Author", "123");
 
@@ -57,10 +66,11 @@ public class LibraryServiceTest {
         assertEquals(0, user.getFineBalance()); // لأن اليوم لم يتجاوز 28 يوم
     }
 
-
     @Test
     void testPayFine() {
-        LibraryService service = new LibraryService();
+        EmailService emailService = new EmailService();
+        LibraryService service = new LibraryService(emailService);
+
         LibraryUser user = new LibraryUser("Roa");
 
         user.addFine(10);
