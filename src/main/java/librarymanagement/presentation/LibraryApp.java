@@ -1,8 +1,6 @@
 package librarymanagement.presentation;
 
-import librarymanagement.domain.Admin;
-import librarymanagement.domain.Book;
-import librarymanagement.domain.LibraryUser;
+import librarymanagement.domain.*;
 import librarymanagement.application.LibraryService;
 import librarymanagement.application.EmailService;
 
@@ -21,16 +19,17 @@ public class LibraryApp {
 
         while (true) {
             System.out.println("\n1. Login");
-            System.out.println("2. Add Book");
-            System.out.println("3. Search Book");
+            System.out.println("2. Add Media");
+            System.out.println("3. Search Media");
             System.out.println("4. Register User");
-            System.out.println("5. Borrow Book");
-            System.out.println("6. Check Overdue Books");
+            System.out.println("5. Borrow Media");
+            System.out.println("6. Check Overdue Media");
             System.out.println("7. Pay Fine");
-            System.out.println("8. Send Reminder for Overdue Books");
+            System.out.println("8. Send Reminder for Overdue Media");
             System.out.println("9. Unregister User");
-            System.out.println("10. Logout");
-            System.out.println("11. Exit");
+            System.out.println("10. Return Media");
+            System.out.println("11. Logout");
+            System.out.println("12. Exit");
             System.out.print("Enter choice: ");
 
             int choice = sc.nextInt();
@@ -48,38 +47,52 @@ public class LibraryApp {
                         System.out.println("Invalid credentials.");
                     }
                     break;
-
                 case 2:
                     if (!admin.isLoggedIn()) {
                         System.out.println("Please login first!");
                         break;
                     }
+                    System.out.print("Media type (Book/CD): ");
+                    String mediaTypeInput = sc.nextLine().trim();  // ← اسم آمن
                     System.out.print("Title: ");
                     String title = sc.nextLine();
-                    System.out.print("Author: ");
+                    System.out.print("Author/Artist: ");
                     String author = sc.nextLine();
-                    System.out.print("ISBN: ");
-                    String isbn = sc.nextLine();
+                    System.out.print("ID/ISBN: ");
+                    String id = sc.nextLine();
 
-                    boolean added = service.addBook(new Book(title, author, isbn));
-                    if (added) {
-                        System.out.println("Book added successfully.");
-                    }
-                    break;
-
-
-                case 3:
-                    System.out.print("Search keyword: ");
-                    String key = sc.nextLine();
-                    List<Book> results = service.searchBook(key);
-                    if (results.isEmpty()) {
-                        System.out.println("No results found.");
+                    Media media = null;
+                    if (mediaTypeInput.equalsIgnoreCase("Book")) {
+                        media = new Book(title, author, id);
+                    } else if (mediaTypeInput.equalsIgnoreCase("CD")) {
+                        media = new CD(title, author, id);
                     } else {
-                        System.out.println("Search results:");
-                        results.forEach(System.out::println);
+                        System.out.println("Unknown media type! Use 'Book' or 'CD'");
+                        break;
+                    }
+
+                    if (service.addMedia(media)) {
+                        System.out.println(mediaTypeInput + " added successfully.");
                     }
                     break;
+                case 3:
+                    System.out.println("Search by title, author, or ID (e.g., 123 for exact ID match)");
+                    System.out.print("Enter keyword: ");
+                    String keyword = sc.nextLine();
+                    List<Media> results = service.searchMedia(keyword);
 
+                    if (results.isEmpty()) {
+                        System.out.println("No results found for '" + keyword + "'");
+                    } else {
+                        System.out.println("Found " + results.size() + " result(s):");
+                        for (int i = 0; i < results.size(); i++) {
+                            Media m = results.get(i);
+                            String mediaType = m instanceof Book ? "Book" : "CD";  // ← اسم آمن
+                            String marker = m.getId().equalsIgnoreCase(keyword.trim()) ? " [EXACT ID MATCH]" : "";
+                            System.out.println((i + 1) + ". [" + mediaType + "] " + m + marker);
+                        }
+                    }
+                    break;
                 case 4:
                     System.out.print("Enter new user name: ");
                     String name = sc.nextLine();
@@ -100,30 +113,29 @@ public class LibraryApp {
                     System.out.print("Select user number: ");
                     int userNum = sc.nextInt() - 1;
                     sc.nextLine();
-
                     if (userNum < 0 || userNum >= usersForBorrow.size()) {
                         System.out.println("Invalid user number!");
                         break;
                     }
                     LibraryUser userToBorrow = usersForBorrow.get(userNum);
 
-                    List<Book> allBooks = service.getAllBooks();
-                    System.out.println("Available books:");
-                    for (int i = 0; i < allBooks.size(); i++) {
-                        Book b = allBooks.get(i);
-                        if (b.isAvailable()) {
-                            System.out.println((i + 1) + ". " + b);
+                    List<Media> allMedia = service.getAllMedia();
+                    System.out.println("Available media:");
+                    for (int i = 0; i < allMedia.size(); i++) {
+                        Media m = allMedia.get(i);
+                        if (m.isAvailable()) {
+                            System.out.println((i + 1) + ". " + m);
                         }
                     }
-                    System.out.print("Enter book number to borrow: ");
-                    int bookIndex = sc.nextInt() - 1;
+                    System.out.print("Enter media number to borrow: ");
+                    int mediaIndex = sc.nextInt() - 1;
                     sc.nextLine();
 
-                    if (bookIndex >= 0 && bookIndex < allBooks.size()) {
-                        Book bookToBorrow = allBooks.get(bookIndex);
-                        service.borrowBook(userToBorrow, bookToBorrow);
+                    if (mediaIndex >= 0 && mediaIndex < allMedia.size()) {
+                        Media mediaToBorrow = allMedia.get(mediaIndex);
+                        service.borrowMedia(userToBorrow, mediaToBorrow);
                     } else {
-                        System.out.println("Invalid book number!");
+                        System.out.println("Invalid media number!");
                     }
                     break;
 
@@ -139,10 +151,9 @@ public class LibraryApp {
                     System.out.print("Select user number: ");
                     int checkUserNum = sc.nextInt() - 1;
                     sc.nextLine();
-
                     if (checkUserNum >= 0 && checkUserNum < usersForCheck.size()) {
                         LibraryUser userToCheck = usersForCheck.get(checkUserNum);
-                        service.checkOverdueBooks(userToCheck);
+                        service.checkOverdueMedia(userToCheck);
                     } else {
                         System.out.println("Invalid user number!");
                     }
@@ -160,7 +171,6 @@ public class LibraryApp {
                     System.out.print("Select user number: ");
                     int payUserNum = sc.nextInt() - 1;
                     sc.nextLine();
-
                     if (payUserNum >= 0 && payUserNum < usersForPay.size()) {
                         LibraryUser userToPay = usersForPay.get(payUserNum);
                         System.out.println("Current fine: " + userToPay.getFineBalance());
@@ -186,7 +196,6 @@ public class LibraryApp {
                     System.out.print("Select user number: ");
                     int reminderUserNum = sc.nextInt() - 1;
                     sc.nextLine();
-
                     if (reminderUserNum >= 0 && reminderUserNum < usersForReminder.size()) {
                         LibraryUser userToRemind = usersForReminder.get(reminderUserNum);
                         service.sendReminder(userToRemind);
@@ -196,7 +205,7 @@ public class LibraryApp {
                     }
                     break;
 
-                case 9: // Unregister user
+                case 9:
                     if (!admin.isLoggedIn()) {
                         System.out.println("Please login as admin first!");
                         break;
@@ -212,7 +221,6 @@ public class LibraryApp {
                     System.out.print("Select user number to unregister: ");
                     int removeUserNum = sc.nextInt() - 1;
                     sc.nextLine();
-
                     if (removeUserNum >= 0 && removeUserNum < usersForRemove.size()) {
                         LibraryUser userToRemove = usersForRemove.get(removeUserNum);
                         service.unregisterUser(admin, userToRemove);
@@ -220,13 +228,59 @@ public class LibraryApp {
                         System.out.println("Invalid user number!");
                     }
                     break;
-
                 case 10:
+                    List<LibraryUser> usersForReturn = service.getUsers();
+                    if (usersForReturn.isEmpty()) {
+                        System.out.println("No users registered yet.");
+                        break;
+                    }
+                    for (int i = 0; i < usersForReturn.size(); i++) {
+                        System.out.println((i + 1) + ". " + usersForReturn.get(i).getName());
+                    }
+                    System.out.print("Select user number: ");
+                    int returnUserNum = sc.nextInt() - 1;
+                    sc.nextLine();
+
+                    if (returnUserNum < 0 || returnUserNum >= usersForReturn.size()) {
+                        System.out.println("Invalid user number!");
+                        break;
+                    }
+
+                    LibraryUser userToReturn = usersForReturn.get(returnUserNum);
+                    List<BorrowedMedia> borrowed = userToReturn.getBorrowedMedia();
+
+                    if (borrowed.isEmpty()) {
+                        System.out.println("This user has no borrowed media.");
+                        break;
+                    }
+
+                    System.out.println("Borrowed media:");
+                    for (int i = 0; i < borrowed.size(); i++) {
+                        BorrowedMedia bm = borrowed.get(i);
+                        System.out.println((i + 1) + ". " + bm.getMedia() + " | Due: " + bm.getDueDate());
+                    }
+
+                    System.out.print("Enter media number to return: ");
+                    int mediaNum = sc.nextInt() - 1;
+                    sc.nextLine();
+
+                    if (mediaNum >= 0 && mediaNum < borrowed.size()) {
+                        BorrowedMedia bm = borrowed.get(mediaNum);
+                        bm.returnMedia();
+                        System.out.println("Returned: " + bm.getMedia().getTitle());
+
+                        // تحقق من الغرامات المتأخرة بعد الإرجاع
+                        service.checkOverdueMedia(userToReturn);
+                    } else {
+                        System.out.println("Invalid media number!");
+                    }
+                    break;
+                case 11:
                     admin.logout();
                     System.out.println("Logged out ♥");
                     break;
 
-                case 11:
+                case 12:
                     System.out.println("Bye!");
                     sc.close();
                     return;

@@ -2,8 +2,8 @@ package librarymanagement;
 
 import librarymanagement.application.EmailService;
 import librarymanagement.application.LibraryService;
-import librarymanagement.domain.BorrowedBook;
 import librarymanagement.domain.Book;
+import librarymanagement.domain.BorrowedMedia;
 import librarymanagement.domain.LibraryUser;
 import org.junit.jupiter.api.Test;
 
@@ -21,12 +21,12 @@ public class LibraryServiceReminderTest {
 
         LibraryUser user = new LibraryUser("Roaa");
         Book book = new Book("Java", "Author", "001");
-        BorrowedBook bb = new BorrowedBook(book);
-        bb.setDueDate(LocalDate.now().minusDays(1));
-        user.getBorrowedBooks().add(bb);
+        BorrowedMedia bm = new BorrowedMedia(book);
+        bm.setDueDate(LocalDate.now().minusDays(1));
+        user.getBorrowedMedia().add(bm);
 
         service.sendReminder(user);
 
-        verify(mockEmail).sendEmail(user.getName(), "You have 1 overdue book(s).");
+        verify(mockEmail).sendEmail(user.getName(), "You have 1 overdue media item(s).");
     }
 }

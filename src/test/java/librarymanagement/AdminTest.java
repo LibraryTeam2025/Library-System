@@ -1,9 +1,6 @@
 package librarymanagement;
 
-import librarymanagement.domain.Admin;
-import librarymanagement.domain.BorrowedBook;
-import librarymanagement.domain.Book;
-import librarymanagement.domain.LibraryUser;
+import librarymanagement.domain.*;
 import librarymanagement.application.LibraryService;
 import librarymanagement.application.EmailService;
 import org.junit.jupiter.api.Test;
@@ -37,70 +34,71 @@ public class AdminTest {
     }
 
     @Test
-    void testBorrowBookSuccess() {
+    void testBorrowMediaSuccess() {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
-        LibraryUser user = new LibraryUser("Roa");
-        Book book = new Book("book", "Author", "123");
 
-        service.addBook(book);
-        boolean borrowed = service.borrowBook(user, book);
+        LibraryUser user = new LibraryUser("Roa");
+        Media book = new Book("book", "Author", "123");
+
+        service.addMedia(book);
+        boolean borrowed = service.borrowMedia(user, book);
 
         assertTrue(borrowed);
-        assertEquals(1, user.getBorrowedBooks().size());
+        assertEquals(1, user.getBorrowedMedia().size());
         assertFalse(book.isAvailable());
     }
 
     @Test
-    void testBorrowBookFailsWithOverdue() {
+    void testBorrowMediaFailsWithOverdue() {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
 
-        Book book1 = new Book("Book1", "Author", "101");
-        Book book2 = new Book("Book2", "Author", "102");
+        Media media1 = new Book("Book1", "Author", "101");
+        Media media2 = new CD("Top Hits", "Various Artists", "CD001");
 
-        service.addBook(book1);
-        service.addBook(book2);
+        service.addMedia(media1);
+        service.addMedia(media2);
 
-        service.borrowBook(user, book1);
+        service.borrowMedia(user, media1);
 
-        // نجعل الكتاب متأخر
-        BorrowedBook bb = user.getBorrowedBooks().get(0);
-        bb.setDueDate(LocalDate.now().minusDays(1));
+        // نجعل الوسيط متأخر
+        BorrowedMedia bm = user.getBorrowedMedia().get(0);
+        bm.setDueDate(LocalDate.now().minusDays(1));
 
-        // محاولة استعارة كتاب آخر تفشل بسبب overdue
-        assertFalse(service.borrowBook(user, book2));
+        // محاولة استعارة أخرى تفشل بسبب overdue
+        assertFalse(service.borrowMedia(user, media2));
     }
 
     @Test
-    void testBorrowBookFailsWithUnpaidFines() {
+    void testBorrowMediaFailsWithUnpaidFines() {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
 
-        Book book = new Book("Book1", "Author", "101");
-        service.addBook(book);
+        Media media = new Book("Book1", "Author", "101");
+        service.addMedia(media);
 
         user.addFine(10); // غرامة غير مدفوعة
-        assertFalse(service.borrowBook(user, book));
+        assertFalse(service.borrowMedia(user, media));
     }
 
     @Test
-    void testOverdueBookAddsFine() {
+    void testOverdueMediaAddsFine() {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
 
-        Book book = new Book("Java", "Author", "001");
-        service.addBook(book);
-        service.borrowBook(user, book);
+        Media media = new Book("Java", "Author", "001");
+        service.addMedia(media);
+        service.borrowMedia(user, media);
 
-        BorrowedBook bb = user.getBorrowedBooks().get(0);
-        bb.setDueDate(LocalDate.now().minusDays(1)); // متأخر
+        BorrowedMedia bm = user.getBorrowedMedia().get(0);
+        bm.setDueDate(LocalDate.now().minusDays(1)); // متأخر
 
-        service.checkOverdueBooks(user);
-        assertEquals(5, user.getFineBalance());
+        service.checkOverdueMedia(user);
+        assertEquals(media.getFineAmount(), user.getFineBalance());
     }
 
     @Test

@@ -1,8 +1,6 @@
 package librarymanagement;
 
-import librarymanagement.domain.Book;
-import librarymanagement.domain.BorrowedBook;
-import librarymanagement.domain.LibraryUser;
+import librarymanagement.domain.*;
 import librarymanagement.application.LibraryService;
 import librarymanagement.application.EmailService;
 
@@ -17,7 +15,7 @@ public class BookTest {
         Book book = new Book("book", "Yaman", "111");
         assertEquals("book", book.getTitle());
         assertEquals("Yaman", book.getAuthor());
-        assertEquals("111", book.getIsbn());
+        assertEquals("111", book.getId());
         assertTrue(book.isAvailable());
     }
 
@@ -33,43 +31,43 @@ public class BookTest {
     @Test
     void testToString() {
         Book book = new Book("database", "Yaman", "111");
-        String expected = "database by Yaman (ISBN: 111)";
+        String expected = "database by Yaman (ID: 111)";
         assertEquals(expected, book.toString());
     }
 
     @Test
-    void testBorrowedBookAvailability() {
+    void testBorrowedMediaAvailability() {
         Book book = new Book("siber", "Yaman", "111");
         LibraryUser user = new LibraryUser("Roa");
-        BorrowedBook borrowedBook = new BorrowedBook(book);
-        user.getBorrowedBooks().add(borrowedBook);
+        BorrowedMedia borrowedMedia = new BorrowedMedia(book);
+        user.getBorrowedMedia().add(borrowedMedia);
 
         assertFalse(book.isAvailable()); // بعد استعارة الكتاب، غير متاح
-        borrowedBook.returnBook();
+        borrowedMedia.returnMedia();
         assertTrue(book.isAvailable());  // بعد إرجاع الكتاب، متاح
     }
 
     @Test
-    void testBorrowedBookDueDate() {
+    void testBorrowedMediaDueDate() {
         Book book = new Book("Basic in Python", "Yaman", "111");
-        BorrowedBook borrowedBook = new BorrowedBook(book);
+        BorrowedMedia borrowedMedia = new BorrowedMedia(book);
 
-        LocalDate expectedDueDate = LocalDate.now().plusDays(28);
-        assertEquals(expectedDueDate, borrowedBook.getDueDate());
+        LocalDate expectedDueDate = LocalDate.now().plusDays(book.getBorrowDays());
+        assertEquals(expectedDueDate, borrowedMedia.getDueDate());
     }
 
     @Test
-    void testLibraryServiceBorrowBook() {
+    void testLibraryServiceBorrowMedia() {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
 
         LibraryUser user = new LibraryUser("Roa");
         Book book = new Book("Java", "Yaman", "111");
-        service.addBook(book);
+        service.addMedia(book);
 
-        service.borrowBook(user, book);
+        service.borrowMedia(user, book);
 
-        assertEquals(1, user.getBorrowedBooks().size());
+        assertEquals(1, user.getBorrowedMedia().size());
         assertFalse(book.isAvailable());
     }
 }
