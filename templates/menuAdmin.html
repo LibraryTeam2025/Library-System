@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Library Management System</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+    <style>
+        :root {
+            --brown: #4a2c0b;
+            --beige: #d4c8b8;
+            --light-beige: #f5f0e6;
+            --text: #3a2a18;
+            --shadow: 0 10px 22px rgba(0,0,0,0.22);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body, html { height:100%; font-family:'Segoe UI', sans-serif; }
+
+        .bg {
+            position:fixed; top:0; left:0; width:100%; height:100%;
+            background:url('../softimage/menu.jpg') center/cover no-repeat;
+            filter:brightness(0.88) contrast(1.05);
+            z-index:-2;
+        }
+
+        .container {
+            min-height:100vh;
+            display:flex; flex-direction:column; justify-content:center; align-items:center;
+            padding:20px 12px;
+        }
+
+        .header {
+            text-align:center; margin-bottom:30px; color:#fff;
+            text-shadow:0 2px 6px rgba(0,0,0,0.6);
+        }
+        .header h1 {
+            font-size:2.2rem; font-weight:700; letter-spacing:1px;
+        }
+        .header p {
+            font-size:1rem; margin-top:8px; color:#f0f0f0;
+        }
+        .heart {  color:#d4c8b8; animation:pulse 1.6s infinite; }
+        @keyframes pulse { 0%,100% {transform:scale(1);} 50% {transform:scale(1.18);} }
+
+        .grid {
+            display:grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap:18px;
+            max-width:1100px;
+            width:100%;
+        }
+
+        .card {
+            background: rgba(255, 253, 245, 0.88);
+            border-radius:18px;
+            padding:18px 16px;
+            box-shadow:var(--shadow);
+            backdrop-filter: blur(10px);
+            border: 1.2px solid rgba(212, 200, 184, 0.35);
+            transition: all 0.35s ease;
+            cursor:pointer;
+            position:relative;
+            overflow:hidden;
+        }
+
+        .card::before {
+            content:'';
+            position:absolute; top:0; left:0; right:0; height:4px;
+            background: linear-gradient(90deg, var(--brown), var(--beige));
+            border-radius:18px 18px 0 0;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 32px rgba(0,0,0,0.28);
+            background: rgba(255, 253, 245, 0.94);
+        }
+
+        .card-number {
+            position:absolute; top:10px; right:12px;
+            background: var(--brown);
+            color: #fff;
+            width:26px; height:26px; border-radius:50%;
+            font-size:0.85rem; font-weight:bold;
+            display:flex; align-items:center; justify-content:center;
+        }
+
+        .card-icon {
+            font-size:2rem; margin-bottom:10px; text-align:center;
+            height:48px; display:flex; align-items:center; justify-content:center;
+            color: var(--brown);
+        }
+
+        .card-title {
+            font-size:1.05rem; font-weight:600; color:var(--text);
+            text-align:center; margin-bottom:6px;
+        }
+
+        .card-desc {
+            font-size:0.82rem; color:#6b5b45; text-align:center; line-height:1.4;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size:1.8rem; }
+            .grid { grid-template-columns:1fr; gap:16px; }
+            .card { padding:16px 14px; }
+            .card-icon { font-size:1.8rem; height:42px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg"></div>
+
+<div class="container">
+    <div class="header">
+        <h1>Library System <span class="heart">♥</span></h1>
+        <p>Manage with elegance</p>
+    </div>
+
+    <div class="grid">
+
+        <div class="card" onclick="go('addMedia.html')">
+            <div class="card-number">2</div>
+            <div class="card-icon"><i class="fas fa-plus-circle"></i></div>
+            <div class="card-title">Add Media</div>
+            <div class="card-desc">Add new items</div>
+        </div>
+
+        <div class="card" onclick="go('search-media.html')">
+            <div class="card-number">3</div>
+            <div class="card-icon"><i class="fas fa-search"></i></div>
+            <div class="card-title">Search Media</div>
+            <div class="card-desc">Find any book</div>
+        </div>
+
+        <div class="card" onclick="go('borrow-media.html')">
+            <div class="card-number">5</div>
+            <div class="card-icon"><i class="fas fa-book-reader"></i></div>
+            <div class="card-title">Borrow Media</div>
+            <div class="card-desc">Lend to users</div>
+        </div>
+
+        <div class="card" onclick="go('overdue.html')">
+            <div class="card-number">6</div>
+            <div class="card-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="card-title">Check Overdue</div>
+            <div class="card-desc">View delays</div>
+        </div>
+
+        <div class="card" onclick="go('pay-fine.html')">
+            <div class="card-number">7</div>
+            <div class="card-icon"><i class="fas fa-money-bill-wave"></i></div>
+            <div class="card-title">Pay Fine</div>
+            <div class="card-desc">Process fees</div>
+        </div>
+
+        <div class="card" onclick="go('send-reminder.html')">
+            <div class="card-number">8</div>
+            <div class="card-icon"><i class="fas fa-bell"></i></div>
+            <div class="card-title">Send Reminder</div>
+            <div class="card-desc">Notify users</div>
+        </div>
+
+        <div class="card" onclick="go('unregister-user.html')">
+            <div class="card-number">9</div>
+            <div class="card-icon"><i class="fas fa-user-slash"></i></div>
+            <div class="card-title">Unregister User</div>
+            <div class="card-desc">Remove account</div>
+        </div>
+
+        <div class="card" onclick="go('return-media.html')">
+            <div class="card-number">10</div>
+            <div class="card-icon"><i class="fas fa-undo"></i></div>
+            <div class="card-title">Return Media</div>
+            <div class="card-desc">Mark returned</div>
+        </div>
+
+        <div class="card" onclick="go('login.html')">
+            <div class="card-number">11</div>
+            <div class="card-icon"><i class="fas fa-sign-out-alt"></i></div>
+            <div class="card-title">Logout</div>
+            <div class="card-desc">End session</div>
+        </div>
+
+        <div class="card" onclick="window.close()">
+            <div class="card-number">12</div>
+            <div class="card-icon"><i class="fas fa-times-circle"></i></div>
+            <div class="card-title">Exit</div>
+            <div class="card-desc">Close system</div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    function go(page) {
+        window.location.href = page;
+    }
+</script>
+
+</body>
+</html>

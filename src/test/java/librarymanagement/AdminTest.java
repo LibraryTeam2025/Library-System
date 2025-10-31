@@ -3,32 +3,49 @@ package librarymanagement;
 import librarymanagement.domain.*;
 import librarymanagement.application.LibraryService;
 import librarymanagement.application.EmailService;
-import org.junit.jupiter.api.Test;
-
+import org.junit.jupiter.api.*;
+import java.io.*;
 import java.time.LocalDate;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class AdminTest {
 
+    private static final String TEST_FILE = "test_admins.txt";
+
+    @BeforeEach
+    void setup() throws IOException {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(TEST_FILE))) {
+            writer.write("soft,123\n");
+            writer.write("roa,456\n");
+        }
+    }
+
+    @AfterEach
+    void cleanup() {
+        File file = new File(TEST_FILE);
+        if (file.exists()) file.delete();
+    }
+
     @Test
     void testLoginSuccess() {
-        Admin admin = new Admin("soft", "123");
-        assertTrue(admin.login("soft", "123"));
+        AdminService adminService = new AdminService(TEST_FILE);
+        Admin admin = adminService.login("soft", "123");
+        assertNotNull(admin);
         assertTrue(admin.isLoggedIn());
     }
 
     @Test
     void testLoginFailure() {
-        Admin admin = new Admin("soft", "123");
-        assertFalse(admin.login("wrong", "123"));
-        assertFalse(admin.isLoggedIn());
+        AdminService adminService = new AdminService(TEST_FILE);
+        Admin admin = adminService.login("wrong", "999");
+        assertNull(admin);
     }
 
     @Test
     void testLogout() {
-        Admin admin = new Admin("soft", "123");
-        admin.login("soft", "123");
+        AdminService adminService = new AdminService(TEST_FILE);
+        Admin admin = adminService.login("soft", "123");
+        assertNotNull(admin);
         admin.logout();
         assertFalse(admin.isLoggedIn());
     }
@@ -37,13 +54,10 @@ public class AdminTest {
     void testBorrowMediaSuccess() {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
-
         LibraryUser user = new LibraryUser("Roa");
-        Media book = new Book("book", "Author", "123");
-
+        Media book = new Book("Book", "Author", "123");
         service.addMedia(book);
         boolean borrowed = service.borrowMedia(user, book);
-
         assertTrue(borrowed);
         assertEquals(1, user.getBorrowedMedia().size());
         assertFalse(book.isAvailable());
@@ -54,20 +68,13 @@ public class AdminTest {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
-
         Media media1 = new Book("Book1", "Author", "101");
         Media media2 = new CD("Top Hits", "Various Artists", "CD001");
-
         service.addMedia(media1);
         service.addMedia(media2);
-
         service.borrowMedia(user, media1);
-
-        // نجعل الوسيط متأخر
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
         bm.setDueDate(LocalDate.now().minusDays(1));
-
-        // محاولة استعارة أخرى تفشل بسبب overdue
         assertFalse(service.borrowMedia(user, media2));
     }
 
@@ -76,11 +83,9 @@ public class AdminTest {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
-
         Media media = new Book("Book1", "Author", "101");
         service.addMedia(media);
-
-        user.addFine(10); // غرامة غير مدفوعة
+        user.addFine(10);
         assertFalse(service.borrowMedia(user, media));
     }
 
@@ -89,14 +94,11 @@ public class AdminTest {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
-
         Media media = new Book("Java", "Author", "001");
         service.addMedia(media);
         service.borrowMedia(user, media);
-
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
-        bm.setDueDate(LocalDate.now().minusDays(1)); // متأخر
-
+        bm.setDueDate(LocalDate.now().minusDays(1));
         service.checkOverdueMedia(user);
         assertEquals(media.getFineAmount(), user.getFineBalance());
     }
@@ -106,11 +108,9 @@ public class AdminTest {
         EmailService emailService = new EmailService();
         LibraryService service = new LibraryService(emailService);
         LibraryUser user = new LibraryUser("Roa");
-
         user.addFine(10);
         service.payFine(user, 4);
         assertEquals(6, user.getFineBalance());
-
         service.payFine(user, 6);
         assertEquals(0, user.getFineBalance());
     }

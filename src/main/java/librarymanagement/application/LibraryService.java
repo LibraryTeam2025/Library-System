@@ -1,6 +1,7 @@
 package librarymanagement.application;
 
 import librarymanagement.domain.*;
+import java.io.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -10,44 +11,81 @@ public class LibraryService {
     private List<Media> mediaList = new ArrayList<>();
     private List<LibraryUser> users = new ArrayList<>();
 
+    private static final String BOOKS_FILE = "books.txt";
+    private static final String CDS_FILE = "cds.txt";
+
     public LibraryService(EmailService emailService) {
         this.emailService = emailService;
+        loadMediaFromFiles();
     }
-    // ✅ إضافة وسائط (كتاب أو CD) — آمنة من القيم الفارغة
+
     public boolean addMedia(Media media) {
         if (media == null) {
-            System.out.println("❌ Invalid media: object is null!");
+            System.out.println("Invalid media: object is null!");
             return false;
         }
 
-        // تحقق من أن الحقول الأساسية موجودة
         if (media.getId() == null || media.getTitle() == null || media.getAuthor() == null) {
-            System.out.println("❌ Invalid media: missing ID, title, or author!");
+            System.out.println("Invalid media: missing ID, title, or author!");
             return false;
         }
 
-        // تحقق من وجود نفس الـ ID مسبقًا
         boolean exists = mediaList.stream()
                 .anyMatch(m -> m.getId() != null && m.getId().equalsIgnoreCase(media.getId()));
 
         if (exists) {
-            System.out.println("⚠️ Media with ID " + media.getId() + " already exists!");
+            System.out.println("Media with ID " + media.getId() + " already exists!");
             return false;
         }
 
-        // أضف الوسيط الجديد
         mediaList.add(media);
-        System.out.println("✅ " + media.getTitle() + " added successfully.");
+        saveMediaToFile(media);
+        System.out.println(media.getTitle() + " added successfully.");
         return true;
     }
 
-
-    // ✅ إضافة مستخدم
-    public void addUser(LibraryUser user) {
-        users.add(user);
-        System.out.println("User added: " + user.getName());
+    private void saveMediaToFile(Media media) {
+        String fileName = media instanceof Book ? BOOKS_FILE : CDS_FILE;
+        try (PrintWriter pw = new PrintWriter(new FileWriter(fileName, true))) {
+            pw.println(media.getId() + "|" + media.getTitle() + "|" + media.getAuthor());
+        } catch (IOException e) {
+            System.out.println("Error saving media to file: " + e.getMessage());
+        }
     }
-    // ✅ البحث عن وسائط (آمن من NullPointerException) + يعطي الأولوية للـ ID
+
+    private void loadMediaFromFiles() {
+        loadMediaFromFile(BOOKS_FILE, "Book");
+        loadMediaFromFile(CDS_FILE, "CD");
+    }
+
+    private void loadMediaFromFile(String fileName, String type) {
+        File file = new File(fileName);
+        if (!file.exists()) {
+            System.out.println("No " + fileName + " found. Starting fresh.");
+            return;
+        }
+
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+
+                String[] parts = line.split("\\|", 3); // id|title|author
+                if (parts.length != 3) continue;
+
+                Media media = type.equals("Book")
+                        ? new Book(parts[1], parts[2], parts[0])
+                        : new CD(parts[1], parts[2], parts[0]);
+
+                mediaList.add(media);
+            }
+            System.out.println("Loaded " + mediaList.size() + " items from " + fileName);
+        } catch (IOException e) {
+            System.out.println("Error loading from " + fileName + ": " + e.getMessage());
+        }
+    }
+
     public List<Media> searchMedia(String keyword) {
         List<Media> results = new ArrayList<>();
         if (keyword == null || keyword.trim().isEmpty()) return results;
@@ -64,27 +102,22 @@ public class LibraryService {
             String author = m.getAuthor() != null ? m.getAuthor().toLowerCase() : "";
             String id = m.getId() != null ? m.getId().toLowerCase() : "";
 
-            // تطابق تام مع الـ ID → أولوية عالية
             if (id.equals(lowerKeyword)) {
                 exactIdMatches.add(m);
-            }
-            // تطابق جزئي في العنوان أو المؤلف أو الـ ID
-            else if (title.contains(lowerKeyword) || author.contains(lowerKeyword) || id.contains(lowerKeyword)) {
+            } else if (title.contains(lowerKeyword) || author.contains(lowerKeyword) || id.contains(lowerKeyword)) {
                 partialMatches.add(m);
             }
         }
 
-        // أضف التطابقات التامة بالـ ID أولًا
         results.addAll(exactIdMatches);
         results.addAll(partialMatches);
-
         return results;
     }
+
     public List<Media> getAllMedia() {
-        return mediaList;
+        return new ArrayList<>(mediaList);
     }
 
-    // ✅ استعارة وسائط (كتاب أو CD)
     public boolean borrowMedia(LibraryUser user, Media media) {
         if (!mediaList.contains(media)) {
             System.out.println("Media not found in library: " + media.getTitle());
@@ -121,42 +154,38 @@ public class LibraryService {
     public void checkOverdueMedia(LibraryUser user) {
         for (BorrowedMedia bm : user.getBorrowedMedia()) {
             if (!bm.isReturned() && LocalDate.now().isAfter(bm.getDueDate())) {
-                // ✅ أضف الغرامة مرة واحدة فقط
                 if (!bm.isFineAdded()) {
                     user.addFine(bm.getMedia().getFineAmount());
                     bm.setFineAdded(true);
                 }
-
                 System.out.println("Overdue: " + bm.getMedia().getTitle() +
                         " | Due: " + bm.getDueDate());
             }
         }
     }
 
-
-
-    // ✅ دفع الغرامة
     public void payFine(LibraryUser user, double amount) {
         user.payFine(amount);
         System.out.println(user.getName() + " paid fine: " + amount + " NIS");
     }
 
-    // ✅ إرسال تذكير عبر الإيميل
     public void sendReminder(LibraryUser user) {
         long overdueCount = user.getBorrowedMedia().stream()
                 .filter(bm -> !bm.isReturned() && LocalDate.now().isAfter(bm.getDueDate()))
                 .count();
 
         if (overdueCount > 0) {
-            String message = "You have " + overdueCount + " overdue media item(s).";
-            emailService.sendEmail(user.getName(), message);
+            String subject = "Overdue Reminder";
+            String message = "Dear " + user.getName() + ",\n\n" +
+                    "You have " + overdueCount + " overdue item(s). Please return them soon.\n" +
+                    "Library Team";
+            emailService.sendEmail(user.getName(), subject, message);
         }
     }
 
-    // ✅ حذف مستخدم بواسطة الأدمن
     public boolean unregisterUser(Admin admin, LibraryUser user) {
         if (!admin.isLoggedIn()) {
-            System.out.println("Only admins can unregister users.");
+            System.out.println("Only logged-in admins can unregister users.");
             return false;
         }
 
@@ -178,7 +207,12 @@ public class LibraryService {
         return true;
     }
 
+    public void addUser(LibraryUser user) {
+        users.add(user);
+        System.out.println("User added: " + user.getName());
+    }
+
     public List<LibraryUser> getUsers() {
-        return users;
+        return new ArrayList<>(users);
     }
 }

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Borrow Media - Library System</title>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+    <style>
+        :root {
+            --brown: #4a2c0b;
+            --beige: #d4c8b8;
+            --light-beige: #f5f0e6;
+            --text: #3a2a18;
+            --shadow: 0 12px 28px rgba(0,0,0,0.22);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body, html { height:100%; font-family:'Segoe UI', sans-serif; }
+
+        .bg {
+            position:fixed; top:0; left:0; width:100%; height:100%;
+            background:url('../softimage/borrow.jpg') center/cover no-repeat;
+            filter:brightness(0.88) contrast(1.05);
+            z-index:-2;
+        }
+
+        .container {
+            min-height:100vh;
+            display:flex; flex-direction:column; justify-content:flex-start; align-items:center;
+            padding:25px 15px;
+        }
+
+        .header {
+            text-align:center; margin-bottom:25px; color:#fff;
+            text-shadow:0 2px 6px rgba(0,0,0,0.6);
+        }
+        .header h1 {
+            font-size:2.1rem; font-weight:700; letter-spacing:1px;
+        }
+        .header p {
+            font-size:1rem; margin-top:6px; color:#f0f0f0;
+        }
+
+        .form-container {
+            background:rgba(255,253,245,0.88);
+            padding:28px 26px;
+            border-radius:20px;
+            box-shadow:var(--shadow);
+            backdrop-filter:blur(12px);
+            border:1.3px solid rgba(212,200,184,0.35);
+            width:100%; max-width:560px;
+        }
+
+        .search-group {
+            margin-bottom:20px;
+        }
+        label {
+            display:block; margin-bottom:8px; color:var(--text); font-weight:600; font-size:0.98rem;
+        }
+        .search-input {
+            width:100%; padding:14px 16px; border:1px solid var(--beige);
+            border-radius:14px; background:#fff; font-size:1rem; outline:none;
+            transition:border 0.3s ease;
+        }
+        .search-input:focus {
+            border-color:var(--brown);
+            box-shadow:0 0 0 3px rgba(74,44,11,0.15);
+        }
+
+        .type-filter {
+            display:flex; gap:10px; margin-bottom:18px;
+        }
+        .type-btn {
+            flex:1; padding:12px; background:rgba(255,255,255,0.9); border:1.5px solid var(--beige);
+            border-radius:12px; font-size:0.95rem; font-weight:600; color:var(--text);
+            cursor:pointer; transition:all 0.3s ease; text-align:center;
+        }
+        .type-btn.active {
+            background:var(--brown); color:#fff; border-color:var(--brown);
+        }
+        .type-btn i { margin-right:6px; }
+
+        .result-card {
+            background:#fff; padding:16px; border-radius:12px; margin-top:12px;
+            border:1px solid var(--beige); display:none; box-shadow:0 4px 12px rgba(0,0,0,0.1);
+        }
+        .result-card.show { display:block; animation:fadeIn 0.4s ease; }
+        @keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:translateY(0);} }
+
+        .result-title {
+            font-weight:600; color:var(--brown); margin-bottom:6px; font-size:1.05rem;
+        }
+        .result-detail {
+            font-size:0.92rem; color:#6b5b45; margin:4px 0;
+        }
+
+        .date-group {
+            display:flex; gap:12px; margin:20px 0;
+        }
+        .date-input {
+            flex:1; padding:14px 16px; border:1px solid var(--beige);
+            border-radius:14px; background:#fff; font-size:1rem; outline:none;
+        }
+
+        .confirm-btn {
+            width:100%; padding:16px; background:var(--brown); color:#fff;
+            border:none; border-radius:14px; font-size:1.05rem; font-weight:600;
+            cursor:pointer; transition:all 0.3s ease; margin-top:15px;
+            display:flex; align-items:center; justify-content:center; gap:10px;
+        }
+        .confirm-btn:hover {
+            background:#6b5b45; transform:translateY(-3px);
+            box-shadow:0 10px 22px rgba(0,0,0,0.22);
+        }
+        .confirm-btn:disabled {
+            background:#ccc; cursor:not-allowed; transform:none;
+        }
+
+        .back-btn {
+            display:inline-flex; align-items:center; gap:8px; margin-top:20px;
+            color:var(--brown); font-weight:600; text-decoration:none; font-size:0.95rem;
+            transition:all 0.3s ease;
+        }
+        .back-btn:hover { color:#8b6f47; transform:translateX(-4px); }
+
+        @media (max-width: 480px) {
+            .header h1 { font-size:1.8rem; }
+            .form-container { padding:22px 18px; }
+            .type-filter { flex-direction:column; }
+            .date-group { flex-direction:column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="bg"></div>
+
+<div class="container">
+    <div class="header">
+        <h1>Borrow Media</h1>
+        <p>Lend a book or CD to a user</p>
+    </div>
+
+    <div class="form-container">
+
+        <div class="type-filter">
+            <button class="type-btn active" onclick="setMediaType('book')">
+                Book
+            </button>
+            <button class="type-btn" onclick="setMediaType('cd')">
+                CD
+            </button>
+        </div>
+
+        <div class="search-group">
+            <label>User ID or Name</label>
+            <input type="text" id="userSearch" class="search-input"  onkeyup="searchUser()" />
+            <div id="userResult" class="result-card"></div>
+        </div>
+
+        <div class="search-group">
+            <label>Media Title or ID</label>
+            <input type="text" id="mediaSearch" class="search-input"  onkeyup="searchMedia()" />
+            <div id="mediaResult" class="result-card"></div>
+        </div>
+
+        <!-- التواريخ -->
+        <div class="date-group">
+            <div>
+                <label>Borrow Date</label>
+                <input type="text" id="borrowDate" class="date-input" readonly />
+            </div>
+            <div>
+                <label>Return Date</label>
+                <input type="text" id="returnDate" class="date-input" readonly />
+            </div>
+        </div>
+
+        <button id="confirmBtn" class="confirm-btn" onclick="confirmBorrow()" disabled>
+            Confirm Borrow
+        </button>
+
+        <a href="menuAdmin.html" class="back-btn">
+            Back to Menu
+        </a>
+    </div>
+</div>
+
+<script>
+
+    const users = [
+        { id: 'U001', name: 'Ahmed Ali', email: 'ahmed@example.com', phone: '0599123456' },
+        { id: 'U002', name: 'Sara Mohammed', email: 'sara@example.com', phone: '0598765432' },
+    ];
+
+    const media = [
+        { type: 'book', title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', id: '978-0-7432-7356-5' },
+        { type: 'book', title: '1984', author: 'George Orwell', id: '978-0-452-28423-4' },
+        { type: 'cd', title: 'Greatest Hits', artist: 'Queen', id: 'CD-001' },
+        { type: 'cd', title: 'Thriller', artist: 'Michael Jackson', id: 'CD-002' },
+    ];
+
+    let selectedUser = null;
+    let selectedMedia = null;
+    let currentMediaType = 'book'; // افتراضي: كتاب
+
+    // تاريخ اليوم
+    function formatDate(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    const today = new Date();
+    document.getElementById('borrowDate').value = formatDate(today);
+    const returnDate = new Date(today);
+    returnDate.setDate(returnDate.getDate() + 14);
+    document.getElementById('returnDate').value = formatDate(returnDate);
+
+    // اختيار نوع الوسيط
+    function setMediaType(type) {
+        currentMediaType = type;
+        document.querySelectorAll('.type-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelector(`.type-btn[onclick="setMediaType('${type}')"]`).classList.add('active');
+
+        // إعادة البحث إذا كان هناك نص
+        searchMedia();
+    }
+
+    // بحث عن المستخدم
+    function searchUser() {
+        const query = document.getElementById('userSearch').value.trim().toLowerCase();
+        const resultDiv = document.getElementById('userResult');
+        resultDiv.innerHTML = '';
+        selectedUser = null;
+
+        if (!query) {
+            resultDiv.classList.remove('show');
+            checkConfirm();
+            return;
+        }
+
+        const found = users.find(u =>
+            u.id.toLowerCase().includes(query) ||
+            u.name.toLowerCase().includes(query)
+        );
+
+        if (found) {
+            selectedUser = found;
+            resultDiv.innerHTML = `
+          <div class="result-title">${found.name}</div>
+          <div class="result-detail">ID: ${found.id}</div>
+          <div class="result-detail">Email: ${found.email}</div>
+          <div class="result-detail">Phone: ${found.phone}</div>
+        `;
+            resultDiv.classList.add('show');
+        } else {
+            resultDiv.innerHTML = '<div class="result-detail" style="color:#d9534f;">User not found</div>';
+            resultDiv.classList.add('show');
+        }
+        checkConfirm();
+    }
+
+    function searchMedia() {
+        const query = document.getElementById('mediaSearch').value.trim().toLowerCase();
+        const resultDiv = document.getElementById('mediaResult');
+        resultDiv.innerHTML = '';
+        selectedMedia = null;
+
+        if (!query) {
+            resultDiv.classList.remove('show');
+            checkConfirm();
+            return;
+        }
+
+        const found = media.find(m =>
+            m.type === currentMediaType &&
+            (m.title.toLowerCase().includes(query) ||
+                m.id.toLowerCase().includes(query))
+        );
+
+        if (found) {
+            selectedMedia = found;
+            resultDiv.innerHTML = `
+          <div class="result-title">${found.title}</div>
+          <div class="result-detail">${found.author || found.artist || '—'}</div>
+          <div class="result-detail">ID: ${found.id} • Type: ${found.type.toUpperCase()}</div>
+        `;
+            resultDiv.classList.add('show');
+        } else {
+            resultDiv.innerHTML = `<div class="result-detail" style="color:#d9534f;">No ${currentMediaType} found</div>`;
+            resultDiv.classList.add('show');
+        }
+        checkConfirm();
+    }
+
+    function checkConfirm() {
+        const btn = document.getElementById('confirmBtn');
+        btn.disabled = !(selectedUser && selectedMedia);
+    }
+
+    function confirmBorrow() {
+        const summary = `
+User: ${selectedUser.name} (${selectedUser.id})
+Media: ${selectedMedia.title} (${selectedMedia.id})
+Type: ${selectedMedia.type.toUpperCase()}
+Borrow Date: ${document.getElementById('borrowDate').value}
+Return Date: ${document.getElementById('returnDate').value}
+      `.trim();
+
+        if (confirm(`Confirm borrow?\n\n${summary}`)) {
+            alert('Media borrowed successfully!');
+
+            document.getElementById('userSearch').value = '';
+            document.getElementById('mediaSearch').value = '';
+            document.getElementById('userResult').classList.remove('show');
+            document.getElementById('mediaResult').classList.remove('show');
+            selectedUser = selectedMedia = null;
+            checkConfirm();
+        }
+    }
+</script>
+
+</body>
+</html>

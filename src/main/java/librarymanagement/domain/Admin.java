@@ -25,4 +25,8 @@ public class Admin {
     public boolean isLoggedIn() {
         return loggedIn;
     }
+
+    public String getUsername() {
+        return username;
+    }
 }

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Library Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body, html {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../softimage/login.jpg') no-repeat center center/cover;
+            filter: brightness(0.85);
+            z-index: -2;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: -1;
+        }
+
+        .login-container {
+            position: absolute;
+            top: 50%;
+            right: 15%;
+            transform: translateY(-50%);
+            background: rgba(255, 253, 245, 0.95);
+            padding: 40px 35px;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+            width: 380px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+
+        h1 {
+            font-size: 28px;
+            color: #4a2c0b;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px 45px 14px 50px;
+            border: none;
+            border-radius: 30px;
+            background: #d4c8b8;
+            color: #4a2c0b;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .input-group input::placeholder {
+            color: #8a7a64;
+        }
+
+        .input-group i {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #8a7a64;
+            font-size: 18px;
+        }
+
+        .input-group .user-icon {
+            left: 18px;
+        }
+
+        .input-group .lock-icon {
+            left: 18px;
+        }
+
+        .show-password {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            margin-bottom: 25px;
+            color: #6b5b45;
+            font-size: 14px;
+        }
+
+        .show-password input {
+            margin-right: 8px;
+        }
+
+        .show-password label {
+            cursor: pointer;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .admin-btn {
+            background: #4a2c0b;
+            color: white;
+        }
+
+        .user-btn {
+            background: #8b6f47;
+            color: white;
+        }
+
+        .signup-btn {
+            background: #d4c8b8;
+            color: #4a2c0b;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css');
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+</head>
+<body>
+
+<div class="background"></div>
+<div class="overlay"></div>
+
+<div class="login-container">
+    <h1>Welcome to Library Management System ♥</h1>
+
+    <div class="input-group">
+        <i class="fas fa-user user-icon"></i>
+        <input type="text" placeholder="User Name" />
+    </div>
+
+    <div class="input-group">
+        <i class="fas fa-lock lock-icon"></i>
+        <input type="password" id="password" placeholder="Password" />
+    </div>
+
+    <div class="show-password">
+        <input type="checkbox" id="showPass" onclick="togglePassword()" />
+        <label for="showPass">show password</label>
+    </div>
+
+    <button class="admin-btn">SignUp As Admin</button>
+    <button class="user-btn">SignUp As User</button>
+</div>
+
+<script>
+    function togglePassword() {
+        const password = document.getElementById("password");
+        const showPass = document.getElementById("showPass");
+        password.type = showPass.checked ? "text" : "password";
+    }
+</script>
+
+</body>
+</html>
