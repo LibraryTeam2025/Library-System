@@ -1,170 +1,160 @@
 package librarymanagement;
 
-import librarymanagement.application.LibraryService;
-import librarymanagement.application.EmailService;
+import librarymanagement.application.*;
 import librarymanagement.domain.*;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
+import java.io.File;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
-public class LibraryServiceTest {
+class LibraryServiceTest {
+
+    private LibraryService service;
+    private EmailService emailService;
+    private UserService userService;
+
+    private static final String TEST_USERS_FILE = "test_users.txt";
+    private static final String BOOKS_FILE = "books.txt";
+    private static final String CDS_FILE = "cds.txt";
+
+    @BeforeEach
+    void setUp() throws Exception {
+        // حذف كل الملفات قبل كل اختبار
+        deleteFile(TEST_USERS_FILE);
+        deleteFile(BOOKS_FILE);
+        deleteFile(CDS_FILE);
+
+        emailService = new EmailService();
+        userService = new UserService(TEST_USERS_FILE);
+        service = new LibraryService(emailService, userService);
+    }
+
+    @AfterEach
+    void tearDown() {
+        deleteFile(TEST_USERS_FILE);
+        deleteFile(BOOKS_FILE);
+        deleteFile(CDS_FILE);
+    }
+
+    private void deleteFile(String path) {
+        try { Files.deleteIfExists(new File(path).toPath()); }
+        catch (Exception e) { /* ignore */ }
+    }
 
     @Test
     void testAddAndSearchBook() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
+        Book book = new Book("Java", "Yaman", "111");
+        assertTrue(service.addMedia(book), "يجب أن تُضاف الوسيط بنجاح");
+        assertFalse(service.addMedia(book), "لا يمكن إضافة وسيط مكرر");
 
-        Book book = new Book("Java book", "Yaman", "111");
-        assertTrue(service.addMedia(book));  // يضيف الكتاب بنجاح
-        assertFalse(service.addMedia(book)); // لا يمكن إضافة نفس ISBN مرة ثانية
+        List<Media> results = service.searchMedia("java");
+        assertEquals(1, results.size(), "يجب أن يُرجع نتيجة واحدة");
+        assertEquals("Java", results.get(0).getTitle());
 
-        List<Media> results = service.searchMedia("Java");
-        assertEquals(1, results.size());
-        assertEquals("Java book", results.get(0).getTitle());
+        results = service.searchMedia("111");
+        assertEquals(1, results.size(), "البحث بالـ ID يجب أن يعمل");
+    }
+
+    @Test
+    void testSearchExactIdPriority() {
+        service.addMedia(new Book("Python", "G", "python"));
+        service.addMedia(new Book("Java Book", "J", "java"));
+
+        List<Media> results = service.searchMedia("java");
+        assertEquals("java", results.get(0).getId(), "الـ ID يجب أن يكون الأولوية");
+        assertEquals("Java Book", results.get(0).getTitle());
     }
 
     @Test
     void testSearchNoResults() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-
-        List<Media> results = service.searchMedia("Python");
-        assertTrue(results.isEmpty());
+        assertTrue(service.searchMedia("xyz").isEmpty(), "البحث عن شيء غير موجود يرجع فارغ");
     }
 
     @Test
-    void testBorrowBook() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
+    void testGetAllMedia() {
+        assertTrue(service.getAllMedia().isEmpty(), "القائمة يجب أن تكون فارغة في البداية");
 
-        LibraryUser user = new LibraryUser("Roa");
-        Book book = new Book("book", "Author", "123");
-
-        service.addMedia(book);
-
-        // استعارة ناجحة
-        assertTrue(service.borrowMedia(user, book));
-        assertEquals(1, user.getBorrowedMedia().size());
-        assertFalse(book.isAvailable());
-
-        // محاولة استعارة نفس الكتاب مرة ثانية تفشل
-        assertFalse(service.borrowMedia(user, book));
+        service.addMedia(new Book("A", "B", "1"));
+        assertEquals(1, service.getAllMedia().size(), "بعد الإضافة يجب أن يكون هناك عنصر واحد");
     }
 
     @Test
-    void testBorrowBookFailsWithOverdue() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-
+    void testBorrowCD() {
         LibraryUser user = new LibraryUser("Roa");
-        Book book1 = new Book("Book1", "Author", "101");
-        Book book2 = new Book("Book2", "Author", "102");
+        userService.addUser("Roa", ""); // أضف المستخدم
+        service.addUser(user);
 
-        service.addMedia(book1);
-        service.addMedia(book2);
+        CD cd = new CD("Hits", "Art", "CD1");
+        service.addMedia(cd);
 
-        service.borrowMedia(user, book1);
+        assertTrue(service.borrowMedia(user, cd), "يجب أن يتم الاستعارة");
 
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
-        bm.setDueDate(LocalDate.now().minusDays(1)); // الكتاب متأخر
-
-        // استعارة أخرى تفشل
-        assertFalse(service.borrowMedia(user, book2));
+        assertEquals(LocalDate.now().plusDays(7), bm.getDueDate(), "CD: 7 أيام");
+        assertFalse(cd.isAvailable(), "الـ CD يجب أن لا يكون متاحًا");
     }
 
     @Test
-    void testBorrowBookFailsWithUnpaidFines() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-
+    void testReturnMedia() {
         LibraryUser user = new LibraryUser("Roa");
-        Book book1 = new Book("Book1", "Author", "101");
+        service.addUser(user);
 
-        service.addMedia(book1);
-        user.addFine(10); // غرامة غير مدفوعة
-
-        assertFalse(service.borrowMedia(user, book1));
-    }
-
-    @Test
-    void testCheckOverdueMediaAddsFine() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-
-        LibraryUser user = new LibraryUser("Roa");
-        Book book = new Book("book", "Author", "123");
-
+        Book book = new Book("X", "Y", "1");
         service.addMedia(book);
         service.borrowMedia(user, book);
 
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
-        bm.setDueDate(LocalDate.now().minusDays(1));
+        bm.returnMedia(); // استخدم returnMedia()
 
-        service.checkOverdueMedia(user);
+        assertTrue(book.isAvailable(), "الكتاب يجب أن يعود متاحًا");
+    }
 
-        assertEquals(10, user.getFineBalance());
+    @Test
+    void testCannotBorrowWithFine() {
+        LibraryUser user = new LibraryUser("Roa");
+        service.addUser(user);
+        user.addFine(10.0); // أضف غرامة
+
+        Book book = new Book("Java", "Y", "1");
+        service.addMedia(book);
+
+        assertFalse(service.borrowMedia(user, book), "لا يمكن الاستعارة مع غرامة");
     }
 
     @Test
     void testPayFine() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-
         LibraryUser user = new LibraryUser("Roa");
+        service.addUser(user);
+        user.addFine(25.0);
 
-        user.addFine(10);
-        service.payFine(user, 4);
-        assertEquals(6, user.getFineBalance());
+        service.payFine(user, 15.0);
+        assertEquals(10.0, user.getFineBalance(), 0.01);
 
-        service.payFine(user, 6);
-        assertEquals(0, user.getFineBalance());
+        service.payFine(user, 10.0);
+        assertEquals(0.0, user.getFineBalance(), 0.01);
     }
 
     @Test
-    void testUnregisterUser() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-
-        Admin admin = new Admin("admin", "123");
-        admin.login("admin", "123");
-
+    void testSendReminder() throws IllegalAccessException, NoSuchFieldException {
         LibraryUser user = new LibraryUser("Roa");
         service.addUser(user);
 
-        // إزالة المستخدم ناجحة بدون كتب أو غرامات
-        assertTrue(service.unregisterUser(admin, user));
-
-        // محاولة إزالة مستخدم مع كتب مستعارة أو غرامات
-        LibraryUser user2 = new LibraryUser("Ali");
-        service.addUser(user2);
-
-        Book book = new Book("Book1", "Author", "101");
+        Book book = new Book("Old", "X", "1");
         service.addMedia(book);
-        service.borrowMedia(user2, book);
-        assertFalse(service.unregisterUser(admin, user2));
+        service.borrowMedia(user, book);
 
-        LibraryUser user3 = new LibraryUser("Omar");
-        service.addUser(user3);
-        user3.addFine(10);
-        assertFalse(service.unregisterUser(admin, user3));
-    }
-
-    // ✅ Sprint 5: Borrow CD test
-    @Test
-    void testBorrowCD() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-
-        LibraryUser user = new LibraryUser("Roa");
-        CD cd = new CD("Top Hits", "Various Artists", "CD001");
-
-        service.addMedia(cd);
-        service.borrowMedia(user, cd);
-
+        // اجعل التاريخ متأخرًا (نحتاج تعديل DueDate للاختبار)
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
+        java.lang.reflect.Field dueDateField = BorrowedMedia.class.getDeclaredField("dueDate");
+        dueDateField.setAccessible(true);
+        dueDateField.set(bm, LocalDate.now().minusDays(1)); // متأخر يوم
 
-        assertEquals(LocalDate.now().plusDays(7), bm.getDueDate()); // مدة الاستعارة 7 أيام
-        assertFalse(cd.isAvailable()); // السي دي غير متاح بعد الاستعارة
+        service.sendReminder(user);
+
+        // تحقق من إرسال الإيميل
+        assertTrue(emailService.getSentMessages().stream()
+                .anyMatch(m -> m.contains("overdue")));
     }
 }

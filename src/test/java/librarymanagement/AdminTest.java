@@ -1,117 +1,190 @@
 package librarymanagement;
 
+import librarymanagement.application.*;
 import librarymanagement.domain.*;
-import librarymanagement.application.LibraryService;
-import librarymanagement.application.EmailService;
 import org.junit.jupiter.api.*;
 import java.io.*;
 import java.time.LocalDate;
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class AdminTest {
 
-    private static final String TEST_FILE = "test_admins.txt";
+    private static final String TEST_ADMINS = "test_admins.txt";
+    private static final String TEST_USERS = "test_users.txt";
+    private static final String TEST_BOOKS = "books.txt";
+    private static final String TEST_CDS = "cds.txt";
+
+    private AdminService adminService;
+    private UserService userService;
+    private EmailService emailService;
+    private LibraryService libraryService;
 
     @BeforeEach
     void setup() throws IOException {
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(TEST_FILE))) {
-            writer.write("soft,123\n");
-            writer.write("roa,456\n");
-        }
+        clearFiles();
+
+        // إعداد ملف الأدمن
+        writeFile(TEST_ADMINS, "admin1,pass1\nadmin2,pass2\n");
+
+        adminService = new AdminService(TEST_ADMINS);
+        userService = new UserService(TEST_USERS);
+        emailService = new EmailService();
+        libraryService = new LibraryService(emailService, userService);
+
+        // تحميل المستخدمين
+        libraryService.getUsers().clear();
+        userService.getUsers().forEach(libraryService::addUser);
     }
 
     @AfterEach
     void cleanup() {
-        File file = new File(TEST_FILE);
-        if (file.exists()) file.delete();
+        clearFiles();
+    }
+
+    private void clearFiles() {
+        new File(TEST_ADMINS).delete();
+        new File(TEST_USERS).delete();
+        new File(TEST_BOOKS).delete();
+        new File(TEST_CDS).delete();
+    }
+
+    private void writeFile(String path, String content) throws IOException {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(path))) {
+            pw.write(content);
+        }
     }
 
     @Test
     void testLoginSuccess() {
-        AdminService adminService = new AdminService(TEST_FILE);
-        Admin admin = adminService.login("soft", "123");
+        Admin admin = adminService.login("admin1", "pass1");
         assertNotNull(admin);
         assertTrue(admin.isLoggedIn());
+        assertEquals("admin1", admin.getUsername());
     }
 
     @Test
     void testLoginFailure() {
-        AdminService adminService = new AdminService(TEST_FILE);
-        Admin admin = adminService.login("wrong", "999");
-        assertNull(admin);
+        assertNull(adminService.login("admin1", "wrong"));
+        assertNull(adminService.login("ghost", "pass1"));
     }
 
     @Test
     void testLogout() {
-        AdminService adminService = new AdminService(TEST_FILE);
-        Admin admin = adminService.login("soft", "123");
-        assertNotNull(admin);
+        Admin admin = adminService.login("admin1", "pass1");
         admin.logout();
         assertFalse(admin.isLoggedIn());
     }
 
     @Test
     void testBorrowMediaSuccess() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-        LibraryUser user = new LibraryUser("Roa");
-        Media book = new Book("Book", "Author", "123");
-        service.addMedia(book);
-        boolean borrowed = service.borrowMedia(user, book);
-        assertTrue(borrowed);
+        LibraryUser user = new LibraryUser("Roa", "123");
+        userService.addUser("Roa", "123");
+        libraryService.addUser(user);
+
+        Book book = new Book("Java", "Oracle", "B001");
+        assertTrue(libraryService.addMedia(book));
+        assertTrue(libraryService.borrowMedia(user, book));
+
         assertEquals(1, user.getBorrowedMedia().size());
         assertFalse(book.isAvailable());
+        assertEquals(LocalDate.now().plusDays(28), user.getBorrowedMedia().get(0).getDueDate());
     }
 
     @Test
     void testBorrowMediaFailsWithOverdue() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-        LibraryUser user = new LibraryUser("Roa");
-        Media media1 = new Book("Book1", "Author", "101");
-        Media media2 = new CD("Top Hits", "Various Artists", "CD001");
-        service.addMedia(media1);
-        service.addMedia(media2);
-        service.borrowMedia(user, media1);
+        LibraryUser user = new LibraryUser("Roa", "123");
+        userService.addUser("Roa", "123");
+        libraryService.addUser(user);
+
+        Book b1 = new Book("B1", "A", "1");
+        CD c1 = new CD("C1", "A", "2");
+        libraryService.addMedia(b1);
+        libraryService.addMedia(c1);
+
+        libraryService.borrowMedia(user, b1);
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
-        bm.setDueDate(LocalDate.now().minusDays(1));
-        assertFalse(service.borrowMedia(user, media2));
+        bm.setDueDate(LocalDate.now().minusDays(1)); // متأخر
+
+        assertFalse(libraryService.borrowMedia(user, c1));
     }
 
     @Test
     void testBorrowMediaFailsWithUnpaidFines() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-        LibraryUser user = new LibraryUser("Roa");
-        Media media = new Book("Book1", "Author", "101");
-        service.addMedia(media);
+        LibraryUser user = new LibraryUser("Roa", "123");
+        userService.addUser("Roa", "123");
+        libraryService.addUser(user);
+
+        Book book = new Book("Java", "A", "1");
+        libraryService.addMedia(book);
         user.addFine(10);
-        assertFalse(service.borrowMedia(user, media));
+
+        assertFalse(libraryService.borrowMedia(user, book));
     }
 
     @Test
-    void testOverdueMediaAddsFine() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
-        LibraryUser user = new LibraryUser("Roa");
-        Media media = new Book("Java", "Author", "001");
-        service.addMedia(media);
-        service.borrowMedia(user, media);
+    void testOverdueMediaAddsFineOnce() {
+        LibraryUser user = new LibraryUser("Roa", "123");
+        userService.addUser("Roa", "123");
+        libraryService.addUser(user);
+
+        Book book = new Book("Java", "A", "1");
+        libraryService.addMedia(book);
+        libraryService.borrowMedia(user, book);
+
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
         bm.setDueDate(LocalDate.now().minusDays(1));
-        service.checkOverdueMedia(user);
-        assertEquals(media.getFineAmount(), user.getFineBalance());
+
+        libraryService.checkOverdueMedia(user);
+        assertEquals(10.0, user.getFineBalance());
+        assertTrue(bm.isFineAdded());
+
+        // لا يضيف غرامة مرة أخرى
+        libraryService.checkOverdueMedia(user);
+        assertEquals(10.0, user.getFineBalance());
     }
 
     @Test
     void testPayFine() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
+        LibraryUser user = new LibraryUser("Roa");
+        user.addFine(20);
+        libraryService.payFine(user, 15);
+        assertEquals(5.0, user.getFineBalance());
+        libraryService.payFine(user, 10);
+        assertEquals(0.0, user.getFineBalance());
+    }
+
+    @Test
+    void testUnregisterUserSuccess() {
+        Admin admin = adminService.login("admin1", "pass1");
+        LibraryUser user = new LibraryUser("Roa");
+        libraryService.addUser(user);
+
+        assertTrue(libraryService.unregisterUser(admin, user));
+        assertFalse(libraryService.getUsers().contains(user));
+    }
+
+    @Test
+    void testUnregisterUserFailsWithActiveLoans() {
+        Admin admin = adminService.login("admin1", "pass1");
+        LibraryUser user = new LibraryUser("Roa");
+        libraryService.addUser(user);
+
+        Book book = new Book("Java", "A", "1");
+        libraryService.addMedia(book);
+        libraryService.borrowMedia(user, book);
+
+        assertFalse(libraryService.unregisterUser(admin, user));
+    }
+
+    @Test
+    void testUnregisterUserFailsWithFines() {
+        Admin admin = adminService.login("admin1", "pass1");
         LibraryUser user = new LibraryUser("Roa");
         user.addFine(10);
-        service.payFine(user, 4);
-        assertEquals(6, user.getFineBalance());
-        service.payFine(user, 6);
-        assertEquals(0, user.getFineBalance());
+        libraryService.addUser(user);
+
+        assertFalse(libraryService.unregisterUser(admin, user));
     }
 }

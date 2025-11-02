@@ -1,27 +1,38 @@
 package librarymanagement;
 
+import librarymanagement.application.*;
 import librarymanagement.domain.*;
-import librarymanagement.application.LibraryService;
-import librarymanagement.application.EmailService;
+import org.junit.jupiter.api.*;
 
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 import java.time.LocalDate;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 public class BookTest {
 
+    private LibraryService service;
+    private UserService userService;
+    private EmailService emailService;
+
+    @BeforeEach
+    void setup() {
+        emailService = new EmailService();
+        userService = new UserService("test_users.txt");
+        service = new LibraryService(emailService, userService);
+    }
+
     @Test
     void testBookCreation() {
-        Book book = new Book("book", "Yaman", "111");
-        assertEquals("book", book.getTitle());
-        assertEquals("Yaman", book.getAuthor());
-        assertEquals("111", book.getId());
+        Book book = new Book("Clean Code", "Robert Martin", "ISBN123");
+        assertEquals("Clean Code", book.getTitle());
+        assertEquals("Robert Martin", book.getAuthor());
+        assertEquals("ISBN123", book.getId());
         assertTrue(book.isAvailable());
     }
 
     @Test
     void testAvailabilityToggle() {
-        Book book = new Book("database", "Yaman", "111");
+        Book book = new Book("DDD", "Eric Evans", "ISBN456");
         book.setAvailable(false);
         assertFalse(book.isAvailable());
         book.setAvailable(true);
@@ -30,44 +41,52 @@ public class BookTest {
 
     @Test
     void testToString() {
-        Book book = new Book("database", "Yaman", "111");
-        String expected = "database by Yaman (ID: 111)";
-        assertEquals(expected, book.toString());
+        Book book = new Book("Refactoring", "Martin Fowler", "ISBN789");
+        assertEquals("Refactoring by Martin Fowler (ID: ISBN789)", book.toString());
     }
 
     @Test
     void testBorrowedMediaAvailability() {
-        Book book = new Book("siber", "Yaman", "111");
+        Book book = new Book("Java", "Yaman", "B001");
         LibraryUser user = new LibraryUser("Roa");
-        BorrowedMedia borrowedMedia = new BorrowedMedia(book);
-        user.getBorrowedMedia().add(borrowedMedia);
+        BorrowedMedia bm = new BorrowedMedia(book);
+        user.getBorrowedMedia().add(bm);
 
-        assertFalse(book.isAvailable()); // بعد استعارة الكتاب، غير متاح
-        borrowedMedia.returnMedia();
-        assertTrue(book.isAvailable());  // بعد إرجاع الكتاب، متاح
+        assertFalse(book.isAvailable());
+        bm.returnMedia();
+        assertTrue(book.isAvailable());
     }
 
     @Test
     void testBorrowedMediaDueDate() {
-        Book book = new Book("Basic in Python", "Yaman", "111");
-        BorrowedMedia borrowedMedia = new BorrowedMedia(book);
-
-        LocalDate expectedDueDate = LocalDate.now().plusDays(book.getBorrowDays());
-        assertEquals(expectedDueDate, borrowedMedia.getDueDate());
+        Book book = new Book("Python", "Yaman", "B002");
+        BorrowedMedia bm = new BorrowedMedia(book);
+        assertEquals(LocalDate.now().plusDays(28), bm.getDueDate());
     }
 
     @Test
-    void testLibraryServiceBorrowMedia() {
-        EmailService emailService = new EmailService();
-        LibraryService service = new LibraryService(emailService);
+    void testLibraryServiceBorrowBook() {
+        userService.addUser("Roa", "123");
+        LibraryUser user = userService.getUserByName("Roa");
+        service.addUser(user);
 
-        LibraryUser user = new LibraryUser("Roa");
-        Book book = new Book("Java", "Yaman", "111");
+        Book book = new Book("Java", "Yaman", "B001");
         service.addMedia(book);
 
-        service.borrowMedia(user, book);
-
+        assertTrue(service.borrowMedia(user, book));
         assertEquals(1, user.getBorrowedMedia().size());
         assertFalse(book.isAvailable());
+    }
+
+    @Test
+    void testGetBorrowDays() {
+        Book book = new Book("X", "Y", "Z");
+        assertEquals(28, book.getBorrowDays());
+    }
+
+    @Test
+    void testGetFineAmount() {
+        Book book = new Book("X", "Y", "Z");
+        assertEquals(10.0, book.getFineAmount());
     }
 }

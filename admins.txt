@@ -1,3 +1,8 @@
 roaa,123
 yaman,123
 saja,12
+yoyo,321
+lolo,2003
+sahar,1999
+roro,0
+soso,22

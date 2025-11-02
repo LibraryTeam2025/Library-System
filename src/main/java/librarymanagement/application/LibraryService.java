@@ -14,11 +14,16 @@ public class LibraryService {
     private static final String BOOKS_FILE = "books.txt";
     private static final String CDS_FILE = "cds.txt";
 
-    public LibraryService(EmailService emailService) {
+    // === في LibraryService.java ===
+
+    private UserService userService; // إضافة حقل
+
+    public LibraryService(EmailService emailService, UserService userService) {
         this.emailService = emailService;
+        this.userService = userService;
+        this.users = userService.getUsers(); // تحميل المستخدمين
         loadMediaFromFiles();
     }
-
     public boolean addMedia(Media media) {
         if (media == null) {
             System.out.println("Invalid media: object is null!");
