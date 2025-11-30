@@ -1,36 +1,38 @@
 package librarymanagement.domain;
 
+import librarymanagement.domain.Admin;
+import librarymanagement.domain.Admin.Role;
+
 import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AdminService {
-    private List<Admin> admins = new ArrayList<>();
+    private final List<Admin> admins = new ArrayList<>();
     private final String filename;
 
     public AdminService(String filename) {
         this.filename = filename;
-        loadAdmins(filename);
+        loadFromFile();
     }
 
-    private void loadAdmins(String filename) {
-        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                String[] parts = line.split(",");
-                if (parts.length == 2) {
-                    admins.add(new Admin(parts[0].trim(), parts[1].trim()));
-                }
-            }
-        } catch (FileNotFoundException fnf) {
-
-        } catch (IOException e) {
-            System.out.println("Error reading admins file: " + e.getMessage());
-        }
+    public boolean addSuperAdmin(String name, String email, String password) {
+        if (getAdminByEmail(email) != null) return false;
+        admins.add(new Admin(name, email, password, Role.OWNER));
+        saveToFile();
+        return true;
     }
 
-    public synchronized Admin login(String username, String password) {
+    public boolean addSmallAdmin(String name, String email, String password) {
+        if (getAdminByEmail(email) != null) return false;
+        admins.add(new Admin(name, email, password, Role.SMALL_ADMIN));
+        saveToFile();
+        return true;
+    }
+
+    public Admin login(String identifier, String password) {
         for (Admin admin : admins) {
-            if (admin.login(username, password)) {
+            if (admin.login(identifier, password)) {
                 return admin;
             }
         }
@@ -38,42 +40,35 @@ public class AdminService {
     }
 
     public List<Admin> getAdmins() {
-        return Collections.unmodifiableList(admins);
+        return new ArrayList<>(admins);
     }
 
-    public synchronized boolean addAdmin(String username, String password) {
-        for (Admin a : admins) {
+    public Admin getAdminByEmail(String email) {
+        return admins.stream()
+                .filter(a -> a.getEmail().equalsIgnoreCase(email))
+                .findFirst()
+                .orElse(null);
+    }
 
-            if (a != null && aIsSame(a, username)) {
-                return false;
+    private void loadFromFile() {
+        if (!new File(filename).exists()) return;
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] p = line.split("\\|");
+                if (p.length == 4) {
+                    Role role = p[3].equals("OWNER") ? Role.OWNER : Role.SMALL_ADMIN;
+                    admins.add(new Admin(p[0], p[1], p[2], role));
+                }
             }
-        }
-
-        Admin newAdmin = new Admin(username, password);
-        admins.add(newAdmin);
-
-        try (FileWriter fw = new FileWriter(filename, true);
-             BufferedWriter bw = new BufferedWriter(fw);
-             PrintWriter out = new PrintWriter(bw)) {
-
-            out.println(username + "," + password);
-            out.flush();
-            return true;
-        } catch (IOException e) {
-            admins.remove(newAdmin);
-            System.out.println("Error writing to admins file: " + e.getMessage());
-            return false;
-        }
+        } catch (Exception ignored) {}
     }
 
-    private boolean aIsSame(Admin a, String username) {
-        try {
-            java.lang.reflect.Field f = Admin.class.getDeclaredField("username");
-            f.setAccessible(true);
-            Object val = f.get(a);
-            return username.equals(String.valueOf(val));
-        } catch (Exception ex) {
-            return false;
-        }
+    private void saveToFile() {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(filename))) {
+            for (Admin a : admins) {
+                pw.println(a.getName() + "|" + a.getEmail() + "|" + a.getPassword() + "|" + a.getRole());
+            }
+        } catch (Exception ignored) {}
     }
 }

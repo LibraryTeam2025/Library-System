@@ -1,22 +1,18 @@
 package librarymanagement.domain;
 
 public class Book extends Media {
+
     public Book(String title, String author, String isbn) {
-        super(title, author, isbn);
+        super(title, author, isbn, new BookFineStrategy());
     }
 
     @Override
     public int getBorrowDays() {
-        return 28; // نفس المدة الأصلية
-    }
-
-    @Override
-    public double getFineAmount() {
-        return 10.0; // غرامة الكتب
+        return 28;
     }
 
     @Override
     public String toString() {
-        return getTitle() + " by " + getAuthor() + " (ID: " + getId() + ")";
+        return "[Book] " + getTitle() + " by " + getAuthor() + " (ISBN: " + getId() + ")";
     }
 }

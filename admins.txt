@@ -1,8 +1,3 @@
-roaa,123
-yaman,123
-saja,12
-yoyo,321
-lolo,2003
-sahar,1999
-roro,0
-soso,22
+Eleen Bzoor|eleenbzoor32@gmail.com|ckcx ygzo vvib eymu|OWNER
+Yaman Abu Asal|yamanabuasal20@gmail.com|9999|SMALL_ADMIN
+yazan|yazan@gmail.com|123|SMALL_ADMIN

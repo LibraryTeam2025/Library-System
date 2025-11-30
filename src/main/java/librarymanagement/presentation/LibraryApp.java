@@ -1,45 +1,44 @@
 package librarymanagement.presentation;
 
+import librarymanagement.application.*;
 import librarymanagement.domain.*;
-import librarymanagement.application.LibraryService;
-import librarymanagement.application.EmailService;
+import librarymanagement.util.EnvLoader;
 
-import java.io.*;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
 public class LibraryApp {
 
-    // ====================== Warm Colors (Brown + Beige + Golden) ======================
     private static final String RESET = "\u001B[0m";
-    private static final String BROWN = "\u001B[38;5;130m";     // Warm Brown
-    private static final String BEIGE = "\u001B[38;5;223m";     // Soft Beige
-    private static final String DARK_BROWN = "\u001B[38;5;94m"; // Deep Brown
-    private static final String LIGHT_BEIGE = "\u001B[38;5;230m"; // Light Beige
-    private static final String ERROR = "\u001B[38;5;124m";     // Deep Red-Brown
+    private static final String BROWN = "\u001B[38;5;130m";
+    private static final String BEIGE = "\u001B[38;5;223m";
+    private static final String DARK_BROWN = "\u001B[38;5;94m";
+    private static final String LIGHT_BEIGE = "\u001B[38;5;230m";
+    private static final String ERROR = "\u001B[38;5;124m";
+    private static final String GREEN = "\u001B[38;5;120m";
+    private static final String RED = "\u001B[38;5;196m";
 
     private static final Scanner sc = new Scanner(System.in);
     private static final AdminService adminService = new AdminService("admins.txt");
-    private static final UserService userService = new UserService("users.txt");
     private static final EmailService emailService = new EmailService();
-    private static final LibraryService service = new LibraryService(emailService, userService);
+    private static final UserService userService;
+    private static final LibraryService service;
+
     private static Admin currentAdmin = null;
     private static LibraryUser currentUser = null;
-    private static String ADMIN_MASTER_KEY;
 
-    // Load Master Key
     static {
-        try (BufferedReader br = new BufferedReader(new FileReader("masterkey.txt"))) {
-            String key = br.readLine();
-            ADMIN_MASTER_KEY = (key != null && !key.trim().isEmpty()) ? key.trim() : "default123";
-        } catch (Exception e) {
-            printWarning("Warning: masterkey.txt not found. Using fallback: default123");
-            ADMIN_MASTER_KEY = "default123";
-        }
+        userService = new UserService("users.txt", "borrowed.txt");
+        service = new LibraryService(emailService, userService);
+        userService.setLibraryService(service);
+        userService.loadBorrowedMedia();
     }
 
     public static void main(String[] args) {
         clearScreen();
+        setupDefaultAdminsFromEnv();
         printWelcomeBanner();
 
         while (true) {
@@ -48,43 +47,68 @@ public class LibraryApp {
             switch (choice) {
                 case 1 -> adminFlow();
                 case 2 -> userFlow();
-                case 3 -> adminSignUp();
-                case 4 -> userSignUp();
-                case 5 -> exitSystem();
-                default -> printError("Invalid choice!");
+                case 3 -> userSignUp();
+                case 4 -> exitSystem();
+                default -> printError("Invalid choice! Try again.");
             }
         }
     }
 
-    // ====================== Visual Effects ======================
+    private static void setupDefaultAdminsFromEnv() {
+        if (!adminService.getAdmins().isEmpty()) return;
+
+        Map<String, String> env = EnvLoader.load();
+        String ownerEmail = env.get("OWNER_EMAIL");
+        String ownerPass  = env.get("OWNER_PASS");
+        String smallEmail = env.get("SMALL_ADMIN_EMAIL");
+        String smallPass  = env.get("SMALL_ADMIN_PASS");
+
+        if (ownerEmail == null || ownerPass == null || smallEmail == null || smallPass == null) {
+            clearScreen();
+            printHeader("CRITICAL ERROR");
+            System.out.println(ERROR + "   pass.env file not found or incomplete!" + RESET);
+            System.out.println(ERROR + "   Create pass.env in project root with correct data." + RESET);
+            delay(6000);
+            System.exit(1);
+        }
+
+        adminService.addSuperAdmin("Eleen Bzoor", ownerEmail.trim(), ownerPass.trim());
+        adminService.addSmallAdmin("Yaman Abu Asal", smallEmail.trim(), smallPass.trim());
+
+        if (userService.getUserByName("Yaman Abu Asal") == null) {
+            userService.addUser("Yaman Abu Asal", smallPass.trim());
+            service.addUser(userService.getUserByName("Yaman Abu Asal"));
+        }
+
+        clearScreen();
+        printHeader("Setup Complete");
+        System.out.println(BEIGE + "   Default accounts created successfully!" + RESET);
+        System.out.println(LIGHT_BEIGE + "   OWNER       : " + ownerEmail.trim() + RESET);
+        System.out.println(LIGHT_BEIGE + "   SMALL ADMIN : " + smallEmail.trim() + RESET);
+        System.out.println(LIGHT_BEIGE + "\n   Press Enter to continue..." + RESET);
+        sc.nextLine();
+    }
+
     private static void clearScreen() {
         System.out.print("\033[H\033[2J");
         System.out.flush();
     }
 
     private static void delay(int ms) {
-        try { Thread.sleep(ms); } catch (Exception e) {}
+        try { Thread.sleep(ms); } catch (Exception ignored) {}
     }
 
     private static void printWelcomeBanner() {
         clearScreen();
-        String banner =
-                BROWN + "╔══════════════════════════════════════════════════╗\n" +
-                        "║" + BEIGE + "        Library Management System ♥               " + BROWN + "║\n" +
-                        "╚══════════════════════════════════════════════════╝" + RESET;
+        String banner = BROWN +
+                "╔══════════════════════════════════════════════════╗\n" +
+                "║" + BEIGE + "      Library Management System              " + BROWN + "     ║\n" +
+                "╚══════════════════════════════════════════════════╝" + RESET;
         System.out.println(center(banner, 60));
         delay(800);
-        System.out.println(LIGHT_BEIGE + "\n          Press Enter to continue..." + RESET);
+        System.out.println(LIGHT_BEIGE + "\n           Press Enter to continue..." + RESET);
         sc.nextLine();
         clearScreen();
-    }
-
-    private static void printHeader(String title) {
-        clearScreen();
-        String line = DARK_BROWN + "═".repeat(60) + RESET;
-        System.out.println(line);
-        System.out.println(center(BEIGE + "  " + title + "  " + RESET, 60));
-        System.out.println(line);
     }
 
     private static String center(String text, int width) {
@@ -93,98 +117,169 @@ public class LibraryApp {
         return " ".repeat(Math.max(0, padding)) + text;
     }
 
+    private static void printHeader(String title) {
+        clearScreen();
+        String line = DARK_BROWN + "═".repeat(60) + RESET;
+        System.out.println(line);
+        System.out.println(center(BEIGE + "  " + title + "  " + RESET, 60));
+        System.out.println(line + "\n");
+    }
+
     private static void printSuccess(String msg) {
-        System.out.println(BEIGE + "   " + msg + " ♥" + RESET);  // بيج + قلب
+        System.out.println(BEIGE + "   " + msg + " " + RESET);
     }
 
     private static void printError(String msg) {
         System.out.println(ERROR + "   Error: " + msg + RESET);
     }
 
-    private static void printWarning(String msg) {
-        System.out.println(BROWN + "   Warning: " + msg + RESET);
+    private static int getIntInput() {
+        while (!sc.hasNextInt()) {
+            printError("Please enter a valid number!");
+            sc.next();
+        }
+        int n = sc.nextInt();
+        sc.nextLine();
+        return n;
     }
 
-    // ====================== Menus ======================
     private static void showMainMenu() {
-        printHeader("Main Menu ♥ ");
-        String[] options = {
-                "1. Admin Login",
-                "2. User Login",
-                "3. Admin Sign Up (First Time / Master Key)",
-                "4. User Sign Up",
-                "5. Exit"
-        };
-        for (String opt : options) {
-            System.out.println(BROWN + "  ➤ " + BEIGE + opt + RESET);  // سهم عريض
+        printHeader("Main Menu");
+        System.out.println(BROWN + "   1. Admin Login" + RESET);
+        System.out.println(BROWN + "   2. User Login" + RESET);
+        System.out.println(BROWN + "   3. User Sign Up" + RESET);
+        System.out.println(BROWN + "   4. Exit" + RESET);
+        System.out.print(DARK_BROWN + "\n   ➤ Choose: " + RESET);
+    }
+
+    private static boolean adminLogin() {
+        printHeader("Admin Login");
+        System.out.print(BROWN + "   Your Email : " + RESET);
+        String id = sc.nextLine().trim();
+        System.out.print(BROWN + "   Your Password: " + RESET);
+        String pass = sc.nextLine();
+
+        currentAdmin = adminService.login(id, pass);
+        if (currentAdmin != null) {
+            printSuccess("Welcome back, " + currentAdmin.getName() + "!");
+            delay(1200);
+            return true;
         }
-        System.out.print(DARK_BROWN + "\n   Select: " + RESET);
+        printError("Invalid email or password.");
+        delay(1500);
+        return false;
     }
 
     private static void printAdminMenu() {
-        printHeader("Admin Dashboard (" + currentAdmin.getUsername() + ")");
-        String[] opts = {
-                "1. Add Media (Book/CD)",
-                "2. Unregister User",
-                "3. Register New User",
-                "4. Send Overdue Reminder",
-                "5. Logout"
-        };
-        for (String opt : opts) {
-            System.out.println(BROWN + "   ➤ " + BEIGE + opt + RESET);
+        String role = currentAdmin.isOwner() ? "[OWNER]" : "[SMALL ADMIN]";
+        printHeader("Admin Panel - " + currentAdmin.getName() + " " + role);
+
+        if (currentAdmin.isOwner()) {
+            System.out.println(BROWN + "   1. Register New Small Admin" + RESET);
+            System.out.println(BROWN + "   2. Delete User" + RESET);
+            System.out.println(BROWN + "   3. Logout" + RESET);
+        } else {
+            System.out.println(BROWN + "   1. Add Book/CD" + RESET);
+            System.out.println(BROWN + "   2. Search Book/CD" + RESET);
+            System.out.println(BROWN + "   3. Borrow Book/CD" + RESET);
+            System.out.println(BROWN + "   4. Return Book/CD" + RESET);
+            System.out.println(BROWN + "   5. My Overdue Items" + RESET);
+            System.out.println(BROWN + "   6. Pay Fine" + RESET);
+            System.out.println(BROWN + "   7. View Overdue Users" + RESET);
+            System.out.println(BROWN + "   8. Send Overdue Reminder" + RESET);
+            System.out.println(BROWN + "   9. Logout" + RESET);
         }
-        System.out.print(DARK_BROWN + "\n   Choose: " + RESET);
+        System.out.print(DARK_BROWN + "\n   ➤ Choose: " + RESET);
     }
 
-    private static void printUserMenu() {
-        printHeader("User Dashboard (" + currentUser.getName() + ")");
-        String[] opts = {
-                "1. Borrow Media",
-                "2. Return Media",
-                "3. Check Overdue Items",
-                "4. Pay Fine",
-                "5. Search Media",
-                "6. Logout"
-        };
-        for (String opt : opts) {
-            System.out.println(BROWN + "  ➤ " + BEIGE + opt + RESET);
-        }
-        System.out.print(DARK_BROWN + "\n   Choose: " + RESET);
-    }
-
-    // ====================== Admin Flow ======================
     private static void adminFlow() {
-        if (adminService.getAdmins().isEmpty()) {
-            printError("No admin found. Please create one first.");
-            delay(1500);
-            return;
-        }
-        if (!adminLogin()) {
-            delay(1000);
-            return;
-        }
+        if (!adminLogin()) return;
 
         while (true) {
             printAdminMenu();
             int choice = getIntInput();
-            switch (choice) {
-                case 1 -> addMedia();
-                case 2 -> unregisterUser();
-                case 3 -> registerNewUser();
-                case 4 -> sendOverdueReminder();
-                case 5 -> { adminLogout(); return; }
-                default -> printError("Invalid option!");
+
+            if (currentAdmin.isOwner()) {
+                switch (choice) {
+                    case 1 -> registerNewSmallAdmin();
+                    case 2 -> unregisterUser();
+                    case 3 -> { logoutAdmin(); return; }
+                    default -> printError("Invalid choice!");
+                }
+            } else {
+                switch (choice) {
+                    case 1 -> addMedia();
+                    case 2 -> searchMedia();
+                    case 3 -> borrowMediaAsAdmin();
+                    case 4 -> returnMediaAsAdmin();
+                    case 5 -> checkOverdueItemsForAdmin();
+                    case 6 -> payFineForAdmin();
+                    case 7 -> viewOverdueUsers();
+                    case 8 -> sendOverdueReminderToAnyone();
+                    case 9 -> { logoutAdmin(); return; }
+                    default -> printError("Invalid choice!");
+                }
             }
             delay(800);
         }
     }
 
-    // ====================== User Flow ======================
-    private static void userFlow() {
-        if (!userLogin()) {
-            delay(1000);
-            return;
+    private static void logoutAdmin() {
+        if (currentAdmin != null) currentAdmin.logout();
+        currentAdmin = null;
+        printSuccess("Logged out successfully.");
+        delay(1200);
+    }
+
+    private static void registerNewSmallAdmin() {
+        printHeader("Register New Small Admin");
+        System.out.print(BROWN + "   Name: " + RESET);
+        String name = sc.nextLine().trim();
+        System.out.print(BROWN + "   Email: " + RESET);
+        String email = sc.nextLine().trim();
+        System.out.print(BROWN + "   Password: " + RESET);
+        String pass = sc.nextLine();
+
+        if (adminService.addSmallAdmin(name, email, pass)) {
+            printSuccess("Small Admin '" + name + "' created successfully!");
+        } else {
+            printError("Email already exists.");
         }
+        delay(1800);
+    }
+
+    private static boolean userLogin() {
+        printHeader("User Login");
+        System.out.print(BROWN + "   Name: " + RESET);
+        String name = sc.nextLine().trim();
+        System.out.print(BROWN + "   Password: " + RESET);
+        String pass = sc.nextLine();
+
+        currentUser = userService.login(name, pass);
+        if (currentUser != null) {
+            printSuccess("Welcome, " + name + "!");
+            service.addUser(currentUser);
+            delay(1200);
+            return true;
+        }
+        printError("Invalid name or password.");
+        delay(1500);
+        return false;
+    }
+
+    private static void printUserMenu() {
+        printHeader("User Panel - " + currentUser.getName());
+        System.out.println(BROWN + "   1. Borrow Book/CD" + RESET);
+        System.out.println(BROWN + "   2. Return Book/CD" + RESET);
+        System.out.println(BROWN + "   3. My Overdue Items" + RESET);
+        System.out.println(BROWN + "   4. Pay Fine" + RESET);
+        System.out.println(BROWN + "   5. Search Media" + RESET);
+        System.out.println(BROWN + "   6. Logout" + RESET);
+        System.out.print(DARK_BROWN + "\n   ➤ Choose: " + RESET);
+    }
+
+    private static void userFlow() {
+        if (!userLogin()) return;
 
         while (true) {
             printUserMenu();
@@ -195,103 +290,38 @@ public class LibraryApp {
                 case 3 -> checkOverdueItems();
                 case 4 -> payFine();
                 case 5 -> searchMedia();
-                case 6 -> { currentUser = null; printSuccess("Logged out successfully."); delay(1000); return; }
-                default -> printError("Invalid option!");
+                case 6 -> { currentUser = null; printSuccess("Logged out."); delay(1200); return; }
+                default -> printError("Invalid choice!");
             }
             delay(800);
         }
     }
 
-    // ====================== Login ======================
-    private static boolean adminLogin() {
-        printHeader("Admin Login ♥");
-        System.out.print(BROWN + "   Username: " + RESET);
-        String username = sc.nextLine().trim();
-        System.out.print(BROWN + "   Password: " + RESET);
-        String password = sc.nextLine().trim();
-
-        currentAdmin = adminService.login(username, password);
-        if (currentAdmin != null) {
-            printSuccess("Welcome, " + username);
-            return true;
-        } else {
-            printError("Invalid credentials.");
-            return false;
-        }
-    }
-
-    private static boolean userLogin() {
-        printHeader("User Login ♥");
+    private static void userSignUp() {
+        printHeader("User Registration");
         System.out.print(BROWN + "   Name: " + RESET);
         String name = sc.nextLine().trim();
+        if (name.isEmpty()) {
+            printError("Name cannot be empty!");
+            delay(1500);
+            return;
+        }
+
         System.out.print(BROWN + "   Password: " + RESET);
-        String password = sc.nextLine().trim();
+        String pass = sc.nextLine();
 
-        currentUser = userService.login(name, password);
-        if (currentUser != null) {
-            printSuccess("Welcome, " + name);
-            return true;
-        } else {
-            printError("Invalid credentials.");
-            return false;
-        }
-    }
-
-    // ====================== Sign Up ======================
-    private static void adminSignUp() {
-        printHeader("Create New Admin ♥");
-        if (adminService.getAdmins().isEmpty()) {
-            System.out.println(LIGHT_BEIGE + "   First admin setup - no master key required" + RESET);
-        } else {
-            System.out.print(ERROR + "   Enter Master Key: " + RESET);
-            String key = sc.nextLine().trim();
-            if (!ADMIN_MASTER_KEY.equals(key)) {
-                printError("Invalid Master Key. Access denied.");
-                delay(1500);
-                return;
-            }
-            printSuccess("Master Key accepted.");
-        }
-
-        System.out.print(BROWN + "   New Admin Username: " + RESET);
-        String username = sc.nextLine().trim();
-        if (username.isEmpty()) { printError("Username cannot be empty."); return; }
-
-        System.out.print(BROWN + "   New Admin Password: " + RESET);
-        String password = sc.nextLine().trim();
-        if (password.isEmpty()) { printError("Password cannot be empty."); return; }
-
-        if (adminService.addAdmin(username, password)) {
-            printSuccess("Admin '" + username + "' created successfully!");
-        } else {
-            printError("Username already exists.");
-        }
-        delay(1500);
-    }
-
-    private static void userSignUp() {
-        printHeader("Register New User ♥");
-        System.out.print(BROWN + "   New User Name: " + RESET);
-        String name = sc.nextLine().trim();
-        if (name.isEmpty()) { printError("Name cannot be empty."); return; }
-
-        System.out.print(BROWN + "   Set Password: " + RESET);
-        String password = sc.nextLine().trim();
-
-        if (userService.addUser(name, password)) {
+        if (userService.addUser(name, pass)) {
             printSuccess("User '" + name + "' registered successfully!");
-            LibraryUser newUser = userService.getUserByName(name);
-            service.addUser(newUser);
+            service.addUser(userService.getUserByName(name));
         } else {
             printError("User already exists.");
         }
-        delay(1500);
+        delay(1800);
     }
 
-    // ====================== Admin Actions ======================
     private static void addMedia() {
-        printHeader("Add Media ♥");
-        System.out.print(BROWN + "   Media type (Book/CD): " + RESET);
+        printHeader("Add New Media");
+        System.out.print(BROWN + "   Type (Book/CD): " + RESET);
         String type = sc.nextLine().trim();
         System.out.print(BROWN + "   Title: " + RESET);
         String title = sc.nextLine();
@@ -300,188 +330,334 @@ public class LibraryApp {
         System.out.print(BROWN + "   ID/ISBN: " + RESET);
         String id = sc.nextLine();
 
-        Media media = type.equalsIgnoreCase("Book") ? new Book(title, author, id)
-                : type.equalsIgnoreCase("CD") ? new CD(title, author, id) : null;
+        Media media = type.equalsIgnoreCase("Book")
+                ? new Book(title, author, id)
+                : type.equalsIgnoreCase("CD")
+                ? new CD(title, author, id)
+                : null;
 
         if (media == null) {
-            printError("Invalid media type! Use 'Book' or 'CD'.");
-            return;
-        }
-        if (service.addMedia(media)) {
+            printError("Invalid type! Use 'Book' or 'CD'.");
+        } else if (service.addMedia(media)) {
             printSuccess(type + " added successfully!");
         } else {
-            printError("Failed to add media.");
+            printError("Media with this ID already exists.");
         }
+        delay(1800);
     }
 
     private static void unregisterUser() {
-        printHeader("Unregister User ♥");
+        printHeader("Delete User");
         List<LibraryUser> users = userService.getUsers();
         if (users.isEmpty()) {
-            printError("No users to unregister.");
+            printError("No users to delete.");
+            delay(1500);
             return;
         }
-        printUserList(users, "Select user to unregister:");
+
+        System.out.println(BEIGE + "   Select user to delete:" + RESET);
+        for (int i = 0; i < users.size(); i++) {
+            System.out.println(BROWN + "   [" + (i + 1) + "] " + users.get(i).getName() + RESET);
+        }
+
         int idx = getIntInput() - 1;
-        if (isValidIndex(idx, users)) {
+        if (idx >= 0 && idx < users.size()) {
             if (userService.removeUser(users.get(idx).getName())) {
-                printSuccess("User removed successfully.");
+                printSuccess("User deleted successfully.");
             } else {
-                printError("Failed to remove user.");
+                printError("Failed to delete user.");
             }
-        }
-    }
-
-    private static void registerNewUser() {
-        printHeader("Register New User (Admin) ♥");
-        System.out.print(BROWN + "   Enter new user name: " + RESET);
-        String name = sc.nextLine().trim();
-        System.out.print(BROWN + "   Set password for user: " + RESET);
-        String password = sc.nextLine().trim();
-
-        if (userService.addUser(name, password)) {
-            printSuccess("User '" + name + "' registered successfully.");
-            LibraryUser newUser = userService.getUserByName(name);
-            service.addUser(newUser);
-        } else {
-            printError("User already exists.");
-        }
-    }
-
-    private static void sendOverdueReminder() {
-        printHeader("Send Overdue Reminder ♥");
-        List<LibraryUser> users = userService.getUsers();
-        if (users.isEmpty()) {
-            printError("No users available.");
-            return;
-        }
-        printUserList(users, "Send reminder to:");
-        int idx = getIntInput() - 1;
-        if (isValidIndex(idx, users)) {
-            service.sendReminder(users.get(idx));
-            printSuccess("Reminder sent successfully!");
-        }
-    }
-
-    private static void adminLogout() {
-        if (currentAdmin != null) {
-            currentAdmin.logout();
-            currentAdmin = null;
-        }
-        printSuccess("Admin logged out successfully.");
-    }
-
-    // ====================== User Actions ======================
-    private static void borrowMedia() {
-        printHeader("Borrow Media ♥");
-        List<Media> available = service.getAllMedia().stream()
-                .filter(Media::isAvailable).toList();
-        if (available.isEmpty()) {
-            printError("No media available for borrowing.");
-            return;
-        }
-
-        System.out.println(BEIGE + "   Available media:" + RESET);
-        for (int i = 0; i < available.size(); i++) {
-            System.out.println(BROWN + "   [" + (i+1) + "] " + available.get(i) + RESET);
-        }
-        System.out.print(DARK_BROWN + "   Select media: " + RESET);
-        int idx = getIntInput() - 1;
-        if (idx >= 0 && idx < available.size()) {
-            service.borrowMedia(currentUser, available.get(idx));
-            printSuccess("Media borrowed successfully!");
         } else {
             printError("Invalid selection.");
         }
+        delay(1800);
+    }
+
+    private static void sendOverdueReminderToAnyone() {
+        printHeader("Send Overdue Reminder");
+        List<LibraryUser> users = userService.getUsers();
+        if (users.isEmpty()) {
+            printError("No users registered yet.");
+            delay(1500);
+            return;
+        }
+
+        System.out.println(BEIGE + "   Choose user:" + RESET);
+        for (int i = 0; i < users.size(); i++) {
+            System.out.println(BROWN + "   [" + (i + 1) + "] " + users.get(i).getName() + RESET);
+        }
+
+        int idx = getIntInput() - 1;
+        if (idx >= 0 && idx < users.size()) {
+            service.sendReminder(users.get(idx));
+            printSuccess("Reminder sent to " + users.get(idx).getName() + "!");
+        } else {
+            printError("Invalid selection.");
+        }
+        delay(1800);
+    }
+
+    private static void borrowMedia() {
+        printHeader("Borrow Media");
+
+        List<Media> available = service.getAvailableMedia();
+        if (available.isEmpty()) {
+            printError("No media available.");
+            delay(1500);
+            return;
+        }
+
+        for (int i = 0; i < available.size(); i++) {
+            Media m = available.get(i);
+            System.out.println("[" + (i + 1) + "] " + m.getType() + " - " + m.getTitle());
+        }
+
+        System.out.print("➤ Select: ");
+        int choice = getIntInput();
+
+        if (choice < 1 || choice > available.size()) {
+            printError("Invalid choice!");
+            delay(1500);
+            return;
+        }
+
+        Media selected = available.get(choice - 1);
+        if (currentUser.getFineBalance() > 0 || currentUser.isBlocked()) {
+            printError("Cannot borrow: You have unpaid fines or your account is blocked.");
+            delay(1500);
+            return;
+        }
+
+        boolean success = service.borrowMedia(currentUser, selected);
+        if (success) {
+            userService.saveBorrowedMedia(); // حفظ الاستعارة
+            printSuccess("Borrowed successfully!");
+        } else {
+            printError("Cannot borrow this media.");
+        }
+
+        delay(1500);
+    }
+
+    private static void borrowMediaAsAdmin() {
+        currentUser = userService.getUserByName(currentAdmin.getName());
+        if (currentUser == null) {
+            printError("No user account linked to this admin.");
+            delay(1500);
+            return;
+        }
+        borrowMedia();
     }
 
     private static void returnMedia() {
-        printHeader("Return Media ♥");
-        List<BorrowedMedia> borrowed = currentUser.getBorrowedMedia();
+        printHeader("Return Media");
+        List<BorrowedMedia> borrowed = currentUser.getBorrowedMedia().stream()
+                .filter(b -> !b.isReturned())
+                .toList();
+
         if (borrowed.isEmpty()) {
             printError("You have no borrowed items.");
+            delay(1500);
             return;
         }
 
-        System.out.println(BEIGE + "   Your borrowed media:" + RESET);
         for (int i = 0; i < borrowed.size(); i++) {
-            System.out.println(BROWN + "   [" + (i+1) + "] " + borrowed.get(i).getMedia() + " | Due: " + borrowed.get(i).getDueDate() + RESET);
+            System.out.println(BROWN + "   [" + (i + 1) + "] " + borrowed.get(i).getMedia().getTitle() +
+                    " | Due: " + borrowed.get(i).getDueDate() + RESET);
         }
-        System.out.print(DARK_BROWN + "   Select item to return: " + RESET);
+
+        System.out.print(DARK_BROWN + "   ➤ Select item: " + RESET);
         int idx = getIntInput() - 1;
         if (idx >= 0 && idx < borrowed.size()) {
-            borrowed.get(idx).returnMedia();
-            printSuccess("Item returned successfully.");
+            BorrowedMedia bm = borrowed.get(idx);
+            bm.returnMedia();
+            printSuccess("Returned successfully!");
+
             service.checkOverdueMedia(currentUser);
+            if (currentUser.getFineBalance() == 0 && !currentUser.hasOverdueItems()) {
+                currentUser.setBlocked(false);
+            }
+
+            userService.saveBorrowedMedia();
+
+
         } else {
             printError("Invalid selection.");
         }
+        delay(1800);
     }
 
+    private static void returnMediaAsAdmin() {
+        currentUser = userService.getUserByName(currentAdmin.getName());
+        if (currentUser == null) return;
+        returnMedia();
+    }
+
+
     private static void checkOverdueItems() {
-        printHeader("Check Overdue Items ♥");
-        service.checkOverdueMedia(currentUser);
+        printHeader("My Overdue Items");
+
+        currentUser.updateFineBalance();
+
+        boolean hasOverdue = false;
+        for (BorrowedMedia bm : currentUser.getBorrowedMedia()) {
+            if (!bm.isReturned() && bm.isOverdue()) {
+                hasOverdue = true;
+                System.out.println("  " + (bm.getMedia() instanceof Book ? "Book" : "CD") + " : " + bm.getMedia().getTitle());
+                System.out.println("     Due Date   : " + bm.getDueDate());
+                System.out.println("     Late by    : " + bm.getOverdueDays() + " day(s)");
+                System.out.println("     Fine       : $" + String.format("%.2f", bm.getFine()) + " NIS");
+                System.out.println("     ───────────────────────────────────");
+            }
+        }
+
+        if (!hasOverdue) {
+            System.out.println(GREEN + "No overdue items. You're all good!" + RESET);
+        } else {
+            System.out.println("\n>>> Total Fine Balance: $" + String.format("%.2f", currentUser.getFineBalance()) + " NIS <<<");
+        }
+
+        delay(3000);
+    }
+
+
+
+
+
+    private static void checkOverdueItemsForAdmin() {
+        printHeader("My Overdue Items");
+
+        currentUser = userService.getUserByName(currentAdmin.getName());
+        if (currentUser == null) {
+            printError("No user account linked to this admin!");
+            delay(2000);
+            return;
+        }
+
+        currentUser.updateFineBalance();
+
+        boolean hasOverdue = false;
+        for (BorrowedMedia bm : currentUser.getBorrowedMedia()) {
+            if (!bm.isReturned() && bm.isOverdue()) {
+                hasOverdue = true;
+                System.out.println(BROWN + "   • " + bm.getMedia().getTitle() + RESET +
+                        " | Due: " + bm.getDueDate() + " | Fine: $" + String.format("%.2f", bm.getFine()));
+            }
+        }
+
+        if (!hasOverdue) {
+            System.out.println(GREEN + "   No overdue items. Great job!" + RESET);
+        } else {
+            System.out.println(RED + "\n   Total Fine: $" + String.format("%.2f", currentUser.getFineBalance()) + RESET);
+        }
+
+        delay(4000);
     }
 
     private static void payFine() {
-        printHeader("Pay Fine ♥");
-        System.out.println(BEIGE + "   Your current fine: $" + currentUser.getFineBalance() + RESET);
-        System.out.print(DARK_BROWN + "   Amount to pay: " + RESET);
-        double amount = sc.nextDouble(); sc.nextLine();
-        service.payFine(currentUser, amount);
-        printSuccess("Payment successful! New balance: $" + currentUser.getFineBalance());
+        printHeader("Pay Fine");
+        currentUser.updateFineBalance();
+        double fine = currentUser.getFineBalance();
+        System.out.println(BEIGE + "   Current fine: $" + String.format("%.2f", fine) + RESET);
+
+        if (fine <= 0) {
+            printSuccess("No fine to pay!");
+            delay(1500);
+            return;
+        }
+
+        System.out.print(DARK_BROWN + "   Amount to pay: $" + RESET);
+        double amount = getDoubleInput();
+        if (amount <= 0) {
+            printError("Invalid amount!");
+            delay(1500);
+            return;
+        }
+        if (amount > fine) amount = fine;
+
+        currentUser.setFineBalance(fine - amount);
+        currentUser.setBlocked(currentUser.getFineBalance() > 0 || currentUser.hasOverdueItems());
+
+        userService.saveUsers();
+        userService.saveBorrowedMedia();
+        service.saveFines();
+
+        System.out.println(currentUser.getName() + " paid $" + amount + ". Remaining: $" + currentUser.getFineBalance());
+        delay(2000);
+    }
+
+
+
+    private static void payFineForAdmin() {
+        currentUser = userService.getUserByName(currentAdmin.getName());
+        if (currentUser == null) {
+            printError("No user account linked to this admin!"); delay(1500); return;
+        }
+        payFine();
+    }
+
+
+    private static void viewOverdueUsers() {
+        printHeader("Overdue Users List");
+        List<LibraryUser> allUsers = userService.getUsers();
+        boolean found = false;
+
+        System.out.println(BEIGE + "   Users with overdue items:" + RESET);
+        System.out.println(DARK_BROWN + "   ═════════════════════════════════════" + RESET);
+
+        for (LibraryUser u : allUsers) {
+            long count = u.getBorrowedMedia().stream()
+                    .filter(bm -> !bm.isReturned() && LocalDate.now().isAfter(bm.getDueDate()))
+                    .count();
+            if (count > 0) {
+                found = true;
+                System.out.printf(BROWN + "   • %-20s " + RESET + LIGHT_BEIGE + "Overdue: %d | Fine: $%.2f%n" + RESET,
+                        u.getName(), count, u.getFineBalance());
+            }
+        }
+
+        if (!found) {
+            System.out.println(LIGHT_BEIGE + "   Everyone is on time!" + RESET);
+        }
+
+        System.out.println(LIGHT_BEIGE + "\n   Press Enter to continue..." + RESET);
+        sc.nextLine();
     }
 
     private static void searchMedia() {
-        printHeader("Search Media ♥");
-        System.out.print(BROWN + "   Search (title/author/ID): " + RESET);
-        String keyword = sc.nextLine();
+        printHeader("Search Media");
+        System.out.print(BROWN + "   Keyword (title/author/ID): " + RESET);
+        String keyword = sc.nextLine().trim();
+
         List<Media> results = service.searchMedia(keyword);
         if (results.isEmpty()) {
             printError("No results found.");
         } else {
             System.out.println(BEIGE + "   Found " + results.size() + " result(s):" + RESET);
-            for (int i = 0; i < results.size(); i++) {
-                Media m = results.get(i);
-                String type = m instanceof Book ? "Book" : "CD";
-                System.out.println(BROWN + "   [" + (i+1) + "] [" + type + "] " + m + RESET);
-            }
+            results.forEach(m -> System.out.println(BROWN + "   • " + m.getType() + " - " + m.getTitle() + RESET));
         }
-    }
-
-    // ====================== Helper Methods ======================
-    private static void printUserList(List<LibraryUser> users, String title) {
-        System.out.println(BEIGE + "   " + title + RESET);
-        for (int i = 0; i < users.size(); i++) {
-            System.out.println(BROWN + "   [" + (i+1) + "] " + users.get(i).getName() + RESET);
-        }
-    }
-
-    private static boolean isValidIndex(int idx, List<?> list) {
-        if (idx >= 0 && idx < list.size()) return true;
-        printError("Invalid selection!");
-        return false;
-    }
-
-    private static int getIntInput() {
-        while (!sc.hasNextInt()) {
-            printError("Please enter a number!");
-            sc.next();
-        }
-        int value = sc.nextInt();
-        sc.nextLine();
-        return value;
+        delay(3000);
     }
 
     private static void exitSystem() {
         clearScreen();
-        String farewell =
-                BROWN + "╔══════════════════════════════════════════════════╗\n" +
-                        "║" + BEIGE + "   Thank you for using the Library System!  ♥     " + BROWN + "║\n" +
-                        "╚══════════════════════════════════════════════════╝" + RESET;
-        System.out.println(center(farewell, 60));
-        delay(1500);
+        String bye = BROWN +
+                "╔══════════════════════════════════════════════════╗\n" +
+                "║" + BEIGE + "   Thank you for using Library System!        " + BROWN + "║\n" +
+                "╚══════════════════════════════════════════════════╝" + RESET;
+        System.out.println(center(bye, 60));
+        delay(2000);
         sc.close();
         System.exit(0);
+    }
+
+    private static double getDoubleInput() {
+        while (!sc.hasNextDouble()) {
+            printError("Please enter a valid amount!");
+            sc.next();
+        }
+        double val = sc.nextDouble();
+        sc.nextLine();
+        return val;
     }
 }
