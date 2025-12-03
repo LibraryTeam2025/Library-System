@@ -48,7 +48,7 @@ public class BorrowedMedia {
         long daysLate = getOverdueDays();
         if (daysLate <= 0) return 0.0;
 
-        int ratePerDay = media instanceof CD ? 20 : 10; // CD=20 شيكل، Book=10
+        int ratePerDay = media instanceof CD ? 20 : 10; // CD=20 ، Book=10
         fine = daysLate * ratePerDay;
         return fine;
     }

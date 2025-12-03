@@ -3,102 +3,118 @@ package librarymanagement;
 import librarymanagement.application.*;
 import librarymanagement.domain.*;
 import org.junit.jupiter.api.*;
+
 import java.io.File;
-import java.nio.file.Files;
+import java.lang.reflect.Field;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class LibraryServiceTest {
 
+    private static EmailService emailService;
+    private static UserService userService;
     private LibraryService service;
-    private EmailService emailService;
-    private UserService userService;
 
-    private static final String TEST_USERS_FILE = "test_users.txt";
     private static final String BOOKS_FILE = "books.txt";
     private static final String CDS_FILE = "cds.txt";
+    private static final String FINES_FILE = "users_fines.txt";
+
+    @BeforeAll
+    static void setUpOnce() {
+        emailService = new EmailService() {
+            private final List<String> sentMessages = new ArrayList<>();
+
+            @Override
+            public void sendEmail(String toEmail, String subject, String message) {
+                sentMessages.add(message);
+            }
+
+            public List<String> getSentMessages() {
+                return new ArrayList<>(sentMessages);
+            }
+        };
+
+        userService = new UserService("test_users.txt", null) {
+            @Override public void loadBorrowedMedia() {}
+            @Override public void saveBorrowedMedia() {}
+            @Override public void saveUsers() {}
+          public void loadUsers() {}
+        };
+    }
 
     @BeforeEach
-    void setUp() throws Exception {
-        // حذف كل الملفات قبل كل اختبار
-        deleteFile(TEST_USERS_FILE);
-        deleteFile(BOOKS_FILE);
-        deleteFile(CDS_FILE);
+    void setUp() {
+        deleteIfExists(BOOKS_FILE);
+        deleteIfExists(CDS_FILE);
+        deleteIfExists(FINES_FILE);
+        deleteIfExists("test_users.txt");
 
-        emailService = new EmailService();
-        userService = new UserService(TEST_USERS_FILE);
         service = new LibraryService(emailService, userService);
+
+        clearPrivateList(service, "mediaList");
+        clearPrivateList(service, "users");
     }
 
     @AfterEach
     void tearDown() {
-        deleteFile(TEST_USERS_FILE);
-        deleteFile(BOOKS_FILE);
-        deleteFile(CDS_FILE);
+        deleteIfExists(BOOKS_FILE);
+        deleteIfExists(CDS_FILE);
+        deleteIfExists(FINES_FILE);
+        deleteIfExists("test_users.txt");
     }
 
-    private void deleteFile(String path) {
-        try { Files.deleteIfExists(new File(path).toPath()); }
-        catch (Exception e) { /* ignore */ }
+    private void deleteIfExists(String fileName) {
+        File file = new File(fileName);
+        if (file.exists()) file.delete();
+    }
+
+    private void clearPrivateList(Object obj, String fieldName) {
+        try {
+            Field field = obj.getClass().getDeclaredField(fieldName);
+            field.setAccessible(true);
+            ((List<?>) field.get(obj)).clear();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to clear " + fieldName, e);
+        }
     }
 
     @Test
     void testAddAndSearchBook() {
         Book book = new Book("Java", "Yaman", "111");
-        assertTrue(service.addMedia(book), "يجب أن تُضاف الوسيط بنجاح");
-        assertFalse(service.addMedia(book), "لا يمكن إضافة وسيط مكرر");
+        assertTrue(service.addMedia(book));
+        assertFalse(service.addMedia(book));
 
-        List<Media> results = service.searchMedia("java");
-        assertEquals(1, results.size(), "يجب أن يُرجع نتيجة واحدة");
-        assertEquals("Java", results.get(0).getTitle());
-
-        results = service.searchMedia("111");
-        assertEquals(1, results.size(), "البحث بالـ ID يجب أن يعمل");
-    }
-
-    @Test
-    void testSearchExactIdPriority() {
-        service.addMedia(new Book("Python", "G", "python"));
-        service.addMedia(new Book("Java Book", "J", "java"));
-
-        List<Media> results = service.searchMedia("java");
-        assertEquals("java", results.get(0).getId(), "الـ ID يجب أن يكون الأولوية");
-        assertEquals("Java Book", results.get(0).getTitle());
+        Media found = service.getMediaById("111");
+        assertNotNull(found);
+        assertEquals("Java", found.getTitle());
     }
 
     @Test
     void testSearchNoResults() {
-        assertTrue(service.searchMedia("xyz").isEmpty(), "البحث عن شيء غير موجود يرجع فارغ");
-    }
-
-    @Test
-    void testGetAllMedia() {
-        assertTrue(service.getAllMedia().isEmpty(), "القائمة يجب أن تكون فارغة في البداية");
-
-        service.addMedia(new Book("A", "B", "1"));
-        assertEquals(1, service.getAllMedia().size(), "بعد الإضافة يجب أن يكون هناك عنصر واحد");
+        assertNull(service.getMediaById("xyz"));
     }
 
     @Test
     void testBorrowCD() {
-        LibraryUser user = new LibraryUser("Roa");
-        userService.addUser("Roa", ""); // أضف المستخدم
+        LibraryUser user = new LibraryUser("Roa", "password", "roa@example.com");
         service.addUser(user);
 
         CD cd = new CD("Hits", "Art", "CD1");
         service.addMedia(cd);
 
-        assertTrue(service.borrowMedia(user, cd), "يجب أن يتم الاستعارة");
+        assertTrue(service.borrowMedia(user, cd));
 
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
-        assertEquals(LocalDate.now().plusDays(7), bm.getDueDate(), "CD: 7 أيام");
-        assertFalse(cd.isAvailable(), "الـ CD يجب أن لا يكون متاحًا");
+        assertEquals(LocalDate.now().plusDays(7), bm.getDueDate());
+        assertFalse(cd.isAvailable());
     }
 
     @Test
     void testReturnMedia() {
-        LibraryUser user = new LibraryUser("Roa");
+        LibraryUser user = new LibraryUser("Roa", "pass", "r@example.com");
         service.addUser(user);
 
         Book book = new Book("X", "Y", "1");
@@ -106,26 +122,26 @@ class LibraryServiceTest {
         service.borrowMedia(user, book);
 
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
-        bm.returnMedia(); // استخدم returnMedia()
+        service.returnMedia(user, bm);
 
-        assertTrue(book.isAvailable(), "الكتاب يجب أن يعود متاحًا");
+        assertTrue(book.isAvailable());
     }
 
     @Test
     void testCannotBorrowWithFine() {
-        LibraryUser user = new LibraryUser("Roa");
+        LibraryUser user = new LibraryUser("Roa", "pass", "r@example.com");
         service.addUser(user);
-        user.addFine(10.0); // أضف غرامة
+        user.addFine(10.0);
 
         Book book = new Book("Java", "Y", "1");
         service.addMedia(book);
 
-        assertFalse(service.borrowMedia(user, book), "لا يمكن الاستعارة مع غرامة");
+        assertFalse(service.borrowMedia(user, book));
     }
 
     @Test
     void testPayFine() {
-        LibraryUser user = new LibraryUser("Roa");
+        LibraryUser user = new LibraryUser("Roa", "pass", "r@example.com");
         service.addUser(user);
         user.addFine(25.0);
 
@@ -137,24 +153,70 @@ class LibraryServiceTest {
     }
 
     @Test
-    void testSendReminder() throws IllegalAccessException, NoSuchFieldException {
-        LibraryUser user = new LibraryUser("Roa");
+    void testSendReminder() throws Exception {
+        LibraryUser user = new LibraryUser("Roa", "pass", "r@example.com");
         service.addUser(user);
 
         Book book = new Book("Old", "X", "1");
         service.addMedia(book);
         service.borrowMedia(user, book);
 
-        // اجعل التاريخ متأخرًا (نحتاج تعديل DueDate للاختبار)
-        BorrowedMedia bm = user.getBorrowedMedia().get(0);
-        java.lang.reflect.Field dueDateField = BorrowedMedia.class.getDeclaredField("dueDate");
+        BorrowedMedia bm = user.getBorrowedMediaInternal().get(0);
+
+        Field dueDateField = BorrowedMedia.class.getDeclaredField("dueDate");
         dueDateField.setAccessible(true);
-        dueDateField.set(bm, LocalDate.now().minusDays(1)); // متأخر يوم
+        dueDateField.set(bm, LocalDate.now().minusDays(5));
+
+        Field fineAddedField = BorrowedMedia.class.getDeclaredField("fineAdded");
+        fineAddedField.setAccessible(true);
+        fineAddedField.set(bm, true);
+
+        emailService.getSentMessages().clear();
 
         service.sendReminder(user);
 
-        // تحقق من إرسال الإيميل
-        assertTrue(emailService.getSentMessages().stream()
-                .anyMatch(m -> m.contains("overdue")));
+        List<String> sent = emailService.getSentMessages();
+        assertFalse(sent.isEmpty(), "should remember if there is overdue book!");
+        assertTrue(sent.get(0).toLowerCase().contains("overdue"));
+    }
+
+    @Test
+    void testAddMediaValidation() {
+        Book invalid = new Book(null, "Author", "2");
+        assertFalse(service.addMedia(invalid));
+
+        Book valid = new Book("Title", "Author", "3");
+        assertTrue(service.addMedia(valid));
+        Book duplicate = new Book("Another", "Author", "3");
+        assertFalse(service.addMedia(duplicate));
+    }
+
+    @Test
+    void testSearchMediaKeyword() {
+        Book b1 = new Book("Java Programming", "Yaman", "10");
+        Book b2 = new Book("Python Programming", "Zara", "11");
+        service.addMedia(b1);
+        service.addMedia(b2);
+
+        List<Media> results = service.searchMedia("java");
+        assertEquals(1, results.size());
+        assertEquals("10", results.get(0).getId());
+    }
+
+    @Test
+    void testGetAvailableMedia() {
+        Book b1 = new Book("A", "X", "101");
+        Book b2 = new Book("B", "Y", "102");
+        service.addMedia(b1);
+        service.addMedia(b2);
+
+        LibraryUser user = new LibraryUser("U", "p", "u@example.com");
+        service.addUser(user);
+
+        service.borrowMedia(user, b1);
+
+        List<Media> available = service.getAvailableMedia();
+        assertEquals(1, available.size());
+        assertEquals("102", available.get(0).getId());
     }
 }

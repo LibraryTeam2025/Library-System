@@ -25,7 +25,6 @@ public class LibraryService {
         userService.loadBorrowedMedia();
         loadFines();
 
-        // Recalculate fines for ALL users when program starts (very important!)
         for (LibraryUser user : users) {
             checkOverdueMedia(user);
         }
@@ -94,7 +93,7 @@ public class LibraryService {
             return false;
         }
 
-        // CRITICAL: Recalculate any new fines before allowing borrow
+        //  calculate any new fines before allowing borrow
         checkOverdueMedia(user);
 
         if (user.isBlocked() || user.getFineBalance() > 0) {
@@ -167,7 +166,6 @@ public class LibraryService {
 
         System.out.println(user.getName() + " paid $" + payment + ". Remaining fine: $" + user.getFineBalance());
     }
-
 
 
     private void updateAllFines() {
@@ -253,15 +251,16 @@ public class LibraryService {
                 .count();
 
         if (overdueCount > 0 && !user.getEmail().trim().isEmpty()) {
-            String subject = "تذكير هام: لديك مواد متأخرة في المكتبة";
-            String message = "عزيزي " + user.getName() + "،\n\n" +
-                    "لديك " + overdueCount + " عنصر متأخر عن موعد الإرجاع.\n" +
-                    "الرجاء إرجاعها في أقرب وقت لتجنب غرامات إضافية.\n\n" +
-                    "شكراً لتعاونك\nفريق المكتبة";
+            String subject = "Important Reminder: You have overdue library items";
+            String message = "Dear " + user.getName() + ",\n\n" +
+                    "You have " + overdueCount + " overdue item(s).\n" +
+                    "Please return them as soon as possible to avoid additional fines.\n\n" +
+                    "Thank you for your cooperation,\nLibrary Team";
 
             emailService.sendEmail(user.getEmail(), subject, message);  // ← إرسال حقيقي
         } else {
-            System.out.println(user.getName() + " لا يوجد تأخير أو لا يملك إيميل.");
+            System.out.println(user.getName() + " has no overdue items or does not have an email.");
+
         }
     }
 }

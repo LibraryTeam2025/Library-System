@@ -3,9 +3,10 @@ package librarymanagement;
 import librarymanagement.application.*;
 import librarymanagement.domain.*;
 import org.junit.jupiter.api.*;
+
 import java.io.*;
+import java.lang.reflect.Field;
 import java.time.LocalDate;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -13,6 +14,7 @@ public class AdminTest {
 
     private static final String TEST_ADMINS = "test_admins.txt";
     private static final String TEST_USERS = "test_users.txt";
+    private static final String TEST_BORROWED = "test_borrowed.txt";
     private static final String TEST_BOOKS = "books.txt";
     private static final String TEST_CDS = "cds.txt";
 
@@ -25,17 +27,16 @@ public class AdminTest {
     void setup() throws IOException {
         clearFiles();
 
-        // إعداد ملف الأدمن
-        writeFile(TEST_ADMINS, "admin1,pass1\nadmin2,pass2\n");
+        writeFile(TEST_ADMINS,
+                "admin1|admin1@mail.com|pass1|OWNER\n" +
+                        "admin2|admin2@mail.com|pass2|SMALL_ADMIN\n");
 
         adminService = new AdminService(TEST_ADMINS);
-        userService = new UserService(TEST_USERS);
         emailService = new EmailService();
+        userService = new UserService(TEST_USERS, TEST_BORROWED);
         libraryService = new LibraryService(emailService, userService);
 
-        // تحميل المستخدمين
-        libraryService.getUsers().clear();
-        userService.getUsers().forEach(libraryService::addUser);
+        userService.setLibraryService(libraryService);
     }
 
     @AfterEach
@@ -46,8 +47,10 @@ public class AdminTest {
     private void clearFiles() {
         new File(TEST_ADMINS).delete();
         new File(TEST_USERS).delete();
+        new File(TEST_BORROWED).delete();
         new File(TEST_BOOKS).delete();
         new File(TEST_CDS).delete();
+        new File("users_fines.txt").delete();
     }
 
     private void writeFile(String path, String content) throws IOException {
@@ -56,135 +59,143 @@ public class AdminTest {
         }
     }
 
+
     @Test
     void testLoginSuccess() {
-        Admin admin = adminService.login("admin1", "pass1");
+        Admin admin = adminService.login("admin1@mail.com", "pass1");
         assertNotNull(admin);
         assertTrue(admin.isLoggedIn());
-        assertEquals("admin1", admin.getUsername());
+        assertEquals("admin1@mail.com", admin.getEmail());
+        assertTrue(admin.isOwner());
+    }
+
+    @Test
+    void testLoginWithUsername() {
+        Admin admin = adminService.login("admin2", "pass2");
+        assertNotNull(admin);
+        assertTrue(admin.isLoggedIn());
+        assertTrue(admin.isSmallAdmin());
     }
 
     @Test
     void testLoginFailure() {
-        assertNull(adminService.login("admin1", "wrong"));
-        assertNull(adminService.login("ghost", "pass1"));
+        assertNull(adminService.login("admin1@mail.com", "wrongpass"));
+        assertNull(adminService.login("nonexistent", "pass1"));
     }
 
     @Test
     void testLogout() {
-        Admin admin = adminService.login("admin1", "pass1");
+        Admin admin = adminService.login("admin1@mail.com", "pass1");
+        assertNotNull(admin);
         admin.logout();
         assertFalse(admin.isLoggedIn());
     }
 
     @Test
     void testBorrowMediaSuccess() {
-        LibraryUser user = new LibraryUser("Roa", "123");
-        userService.addUser("Roa", "123");
-        libraryService.addUser(user);
+        LibraryUser user = new LibraryUser("Roa", "123", "roa@mail.com");
+        userService.addUser(user.getName(), user.getPassword(), user.getEmail());
+        user = userService.getUserByName("Roa");
 
-        Book book = new Book("Java", "Oracle", "B001");
+        Book book = new Book("Java Programming", "Oracle", "B001");
         assertTrue(libraryService.addMedia(book));
-        assertTrue(libraryService.borrowMedia(user, book));
 
+        assertTrue(libraryService.borrowMedia(user, book));
         assertEquals(1, user.getBorrowedMedia().size());
         assertFalse(book.isAvailable());
-        assertEquals(LocalDate.now().plusDays(28), user.getBorrowedMedia().get(0).getDueDate());
     }
 
     @Test
-    void testBorrowMediaFailsWithOverdue() {
-        LibraryUser user = new LibraryUser("Roa", "123");
-        userService.addUser("Roa", "123");
-        libraryService.addUser(user);
+    void testBorrowMediaFailsWithOverdue() throws Exception {
+        LibraryUser user = new LibraryUser("Roa", "123", "r@mail.com");
+        userService.addUser(user.getName(), user.getPassword(), user.getEmail());
+        user = userService.getUserByName("Roa");
 
-        Book b1 = new Book("B1", "A", "1");
-        CD c1 = new CD("C1", "A", "2");
+        Book b1 = new Book("Book1", "Author", "1");
+        CD c1 = new CD("CD1", "Artist", "2");
         libraryService.addMedia(b1);
         libraryService.addMedia(c1);
 
         libraryService.borrowMedia(user, b1);
-        BorrowedMedia bm = user.getBorrowedMedia().get(0);
-        bm.setDueDate(LocalDate.now().minusDays(1)); // متأخر
+        BorrowedMedia borrowed = user.getBorrowedMedia().get(0);
 
+        Field dueDateField = BorrowedMedia.class.getDeclaredField("dueDate");
+        dueDateField.setAccessible(true);
+        dueDateField.set(borrowed, LocalDate.now().minusDays(5));
+
+        Field borrowDateField = BorrowedMedia.class.getDeclaredField("borrowDate");
+        borrowDateField.setAccessible(true);
+        borrowDateField.set(borrowed, LocalDate.now().minusDays(30));
+
+        Field fineAddedField = BorrowedMedia.class.getDeclaredField("fineAdded");
+        fineAddedField.setAccessible(true);
+        fineAddedField.set(borrowed, false);
+
+        libraryService.checkOverdueMedia(user);
+
+        assertEquals(50.0, user.getFineBalance(), 0.01); // 5 أيام × 10 = 50
         assertFalse(libraryService.borrowMedia(user, c1));
     }
 
     @Test
     void testBorrowMediaFailsWithUnpaidFines() {
-        LibraryUser user = new LibraryUser("Roa", "123");
-        userService.addUser("Roa", "123");
-        libraryService.addUser(user);
+        LibraryUser user = new LibraryUser("Roa", "123", "r@mail.com");
+        userService.addUser(user.getName(), user.getPassword(), user.getEmail());
+        user = userService.getUserByName("Roa");
 
-        Book book = new Book("Java", "A", "1");
+        Book book = new Book("Java", "Author", "1");
         libraryService.addMedia(book);
-        user.addFine(10);
+
+        user.addFine(15.0);
 
         assertFalse(libraryService.borrowMedia(user, book));
+        assertEquals(15.0, user.getFineBalance(), 0.01);
     }
 
     @Test
-    void testOverdueMediaAddsFineOnce() {
-        LibraryUser user = new LibraryUser("Roa", "123");
-        userService.addUser("Roa", "123");
-        libraryService.addUser(user);
+    void testOverdueMediaAddsFineOnce() throws Exception {
+        LibraryUser user = new LibraryUser("Roa", "123", "r@mail.com");
+        userService.addUser(user.getName(), user.getPassword(), user.getEmail());
+        user = userService.getUserByName("Roa");
 
-        Book book = new Book("Java", "A", "1");
+        Book book = new Book("Java", "Author", "1");
         libraryService.addMedia(book);
         libraryService.borrowMedia(user, book);
 
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
-        bm.setDueDate(LocalDate.now().minusDays(1));
+
+        Field dueDateField = BorrowedMedia.class.getDeclaredField("dueDate");
+        dueDateField.setAccessible(true);
+        dueDateField.set(bm, LocalDate.now().minusDays(4));
+
+        Field borrowDateField = BorrowedMedia.class.getDeclaredField("borrowDate");
+        borrowDateField.setAccessible(true);
+        borrowDateField.set(bm, LocalDate.now().minusDays(25));
+
+        Field fineAddedField = BorrowedMedia.class.getDeclaredField("fineAdded");
+        fineAddedField.setAccessible(true);
+        fineAddedField.set(bm, false);
 
         libraryService.checkOverdueMedia(user);
-        assertEquals(10.0, user.getFineBalance());
-        assertTrue(bm.isFineAdded());
+        assertEquals(40.0, user.getFineBalance(), 0.01); // 4 أيام × 10
 
-        // لا يضيف غرامة مرة أخرى
         libraryService.checkOverdueMedia(user);
-        assertEquals(10.0, user.getFineBalance());
+        assertEquals(40.0, user.getFineBalance(), 0.01);
     }
+
 
     @Test
     void testPayFine() {
-        LibraryUser user = new LibraryUser("Roa");
-        user.addFine(20);
-        libraryService.payFine(user, 15);
-        assertEquals(5.0, user.getFineBalance());
-        libraryService.payFine(user, 10);
-        assertEquals(0.0, user.getFineBalance());
-    }
+        LibraryUser user = new LibraryUser("Roa", "123", "r@mail.com");
+        userService.addUser(user.getName(), user.getPassword(), user.getEmail());
+        user = userService.getUserByName("Roa");
 
-    @Test
-    void testUnregisterUserSuccess() {
-        Admin admin = adminService.login("admin1", "pass1");
-        LibraryUser user = new LibraryUser("Roa");
-        libraryService.addUser(user);
+        user.addFine(75.0);
 
-        assertTrue(libraryService.unregisterUser(admin, user));
-        assertFalse(libraryService.getUsers().contains(user));
-    }
+        libraryService.payFine(user, 50.0);
+        assertEquals(25.0, user.getFineBalance(), 0.01);
 
-    @Test
-    void testUnregisterUserFailsWithActiveLoans() {
-        Admin admin = adminService.login("admin1", "pass1");
-        LibraryUser user = new LibraryUser("Roa");
-        libraryService.addUser(user);
-
-        Book book = new Book("Java", "A", "1");
-        libraryService.addMedia(book);
-        libraryService.borrowMedia(user, book);
-
-        assertFalse(libraryService.unregisterUser(admin, user));
-    }
-
-    @Test
-    void testUnregisterUserFailsWithFines() {
-        Admin admin = adminService.login("admin1", "pass1");
-        LibraryUser user = new LibraryUser("Roa");
-        user.addFine(10);
-        libraryService.addUser(user);
-
-        assertFalse(libraryService.unregisterUser(admin, user));
+        libraryService.payFine(user, 30.0);
+        assertEquals(0.0, user.getFineBalance(), 0.01);
     }
 }

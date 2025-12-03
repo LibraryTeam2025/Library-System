@@ -64,6 +64,7 @@ public class UserService {
     }
 
     private void loadUsers() {
+        if (usersFile == null || usersFile.isEmpty()) return; // <-- التحقق من null أو فارغ
         File file = new File(usersFile);
         if (!file.exists()) return;
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
@@ -100,6 +101,7 @@ public class UserService {
 
     public void loadBorrowedMedia() {
         if (libraryService == null) return;
+        if (borrowedFile == null || borrowedFile.isEmpty()) return;
         for (LibraryUser user : users) {
             user.getBorrowedMediaInternal().clear();
         }

@@ -24,7 +24,7 @@ public class CDTest {
     @Test
     void testFineAmount() {
         CD cd = new CD("Rock", "Band", "CD003");
-        assertEquals(20.0, cd.getFineAmount());
+        assertEquals(20.0, cd.calculateFine(1));
     }
 
     @Test

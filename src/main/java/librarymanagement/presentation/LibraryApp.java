@@ -448,7 +448,7 @@ public class LibraryApp {
 
         boolean success = service.borrowMedia(currentUser, selected);
         if (success) {
-            userService.saveBorrowedMedia(); // حفظ الاستعارة
+            userService.saveBorrowedMedia();
             printSuccess("Borrowed successfully!");
         } else {
             printError("Cannot borrow this media.");
@@ -537,10 +537,6 @@ public class LibraryApp {
 
         delay(3000);
     }
-
-
-
-
 
     private static void checkOverdueItemsForAdmin() {
         printHeader("My Overdue Items");

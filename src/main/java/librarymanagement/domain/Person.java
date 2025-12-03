@@ -13,5 +13,5 @@ public abstract class Person {
 
     public String getName() { return name; }
     public String getEmail() { return email; }
-    protected String getPassword() { return password; } // للورثة فقط
+    protected String getPassword() { return password; }
 }

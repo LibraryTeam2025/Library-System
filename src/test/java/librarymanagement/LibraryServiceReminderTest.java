@@ -21,11 +21,13 @@ public class LibraryServiceReminderTest {
     @BeforeEach
     void setup() {
         MockitoAnnotations.openMocks(this);
-        UserService userService = new UserService("test.txt");
+
+        UserService userService = new UserService("test_users.txt", "test_borrowed.txt");
         service = new LibraryService(mockEmail, userService);
 
-        user = new LibraryUser("Roaa");
+        user = new LibraryUser("Roaa", "password", "roaa@example.com");
         book = new Book("Java", "Author", "001");
+
         service.addMedia(book);
         service.addUser(user);
     }
@@ -38,7 +40,11 @@ public class LibraryServiceReminderTest {
 
         service.sendReminder(user);
 
-        verify(mockEmail).sendEmail(eq("Roaa"), eq("Overdue Reminder"), contains("1 overdue"));
+        verify(mockEmail).sendEmail(
+                eq("roaa@example.com"),
+                eq("Overdue Reminder"),
+                contains("1 overdue")
+        );
     }
 
     @Test

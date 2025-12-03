@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 public class LibraryUser {
     private String name;
     private String password;
-    private String email;                    // ← جديد
+    private String email;
     private double fineBalance = 0.0;
     private final List<BorrowedMedia> borrowedMedia = new ArrayList<>();
     private boolean blocked;
