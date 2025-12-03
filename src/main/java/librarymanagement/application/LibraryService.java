@@ -24,7 +24,12 @@ public class LibraryService {
         userService.setLibraryService(this);
         userService.loadBorrowedMedia();
         loadFines();
-        updateAllFines();
+
+        // Recalculate fines for ALL users when program starts (very important!)
+        for (LibraryUser user : users) {
+            checkOverdueMedia(user);
+        }
+        saveFines(); // Save any newly calculated fines
     }
 
     // Users
@@ -83,16 +88,18 @@ public class LibraryService {
         }
         return results;
     }
-
-    //  Borrow & Return
     public boolean borrowMedia(LibraryUser user, Media media) {
         if (!media.isAvailable()) {
             System.out.println("Media is not available: " + media.getTitle());
             return false;
         }
 
+        // CRITICAL: Recalculate any new fines before allowing borrow
+        checkOverdueMedia(user);
+
         if (user.isBlocked() || user.getFineBalance() > 0) {
-            System.out.println("Cannot borrow: You have unpaid fines or your account is blocked.");
+            System.out.println("Cannot borrow: You have unpaid fines or overdue items.");
+            System.out.println("Please pay your fine first: $" + String.format("%.2f", user.getFineBalance()));
             return false;
         }
 
@@ -101,10 +108,14 @@ public class LibraryService {
         media.setAvailable(false);
 
         System.out.println(user.getName() + " borrowed: " + media.getTitle()
-                + " | Due: " + borrowed.getDueDate());
+                + " | Due Date: " + borrowed.getDueDate());
+
+        // Save changes
+        userService.saveBorrowedMedia();
+        saveFines();
+
         return true;
     }
-
     public void returnMedia(LibraryUser user, BorrowedMedia borrowed) {
         borrowed.returnMedia();
         borrowed.getMedia().setAvailable(true);
@@ -236,23 +247,21 @@ public class LibraryService {
         }
     }
 
-    // Email Reminders
     public void sendReminder(LibraryUser user) {
         long overdueCount = user.getBorrowedMedia().stream()
                 .filter(bm -> !bm.isReturned() && LocalDate.now().isAfter(bm.getDueDate()))
                 .count();
 
-        if (overdueCount > 0) {
-            String subject = "Library Overdue Reminder";
-            String message = "Dear " + user.getName() + ",\n\n" +
-                    "You have " + overdueCount + " overdue item(s).\n" +
-                    "Please return them to avoid additional fines.\n\n" +
-                    "Thank you,\nLibrary Team";
+        if (overdueCount > 0 && !user.getEmail().trim().isEmpty()) {
+            String subject = "تذكير هام: لديك مواد متأخرة في المكتبة";
+            String message = "عزيزي " + user.getName() + "،\n\n" +
+                    "لديك " + overdueCount + " عنصر متأخر عن موعد الإرجاع.\n" +
+                    "الرجاء إرجاعها في أقرب وقت لتجنب غرامات إضافية.\n\n" +
+                    "شكراً لتعاونك\nفريق المكتبة";
 
-            emailService.sendEmail(user.getName(), subject, message);
-            System.out.println("Reminder sent to " + user.getName());
+            emailService.sendEmail(user.getEmail(), subject, message);  // ← إرسال حقيقي
         } else {
-            System.out.println(user.getName() + " has no overdue items.");
+            System.out.println(user.getName() + " لا يوجد تأخير أو لا يملك إيميل.");
         }
     }
 }

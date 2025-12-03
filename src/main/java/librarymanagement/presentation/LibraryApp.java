@@ -76,7 +76,7 @@ public class LibraryApp {
         adminService.addSmallAdmin("Yaman Abu Asal", smallEmail.trim(), smallPass.trim());
 
         if (userService.getUserByName("Yaman Abu Asal") == null) {
-            userService.addUser("Yaman Abu Asal", smallPass.trim());
+            userService.addUser("Yaman Abu Asal", smallPass.trim(), smallEmail.trim());
             service.addUser(userService.getUserByName("Yaman Abu Asal"));
         }
 
@@ -247,7 +247,6 @@ public class LibraryApp {
         }
         delay(1800);
     }
-
     private static boolean userLogin() {
         printHeader("User Login");
         System.out.print(BROWN + "   Name: " + RESET);
@@ -257,7 +256,17 @@ public class LibraryApp {
 
         currentUser = userService.login(name, pass);
         if (currentUser != null) {
-            printSuccess("Welcome, " + name + "!");
+            // Double-check fines after login (in case date changed)
+            service.checkOverdueMedia(currentUser);
+
+            if (currentUser.getFineBalance() > 0 || currentUser.hasOverdueItems()) {
+                printError("You have overdue items or unpaid fines!");
+                System.out.println(RED + "   Total Fine: $" + String.format("%.2f", currentUser.getFineBalance()) + " NIS" + RESET);
+                delay(3000);
+            } else {
+                printSuccess("Welcome back, " + currentUser.getName() + "!");
+            }
+
             service.addUser(currentUser);
             delay(1200);
             return true;
@@ -266,6 +275,7 @@ public class LibraryApp {
         delay(1500);
         return false;
     }
+
 
     private static void printUserMenu() {
         printHeader("User Panel - " + currentUser.getName());
@@ -299,7 +309,7 @@ public class LibraryApp {
 
     private static void userSignUp() {
         printHeader("User Registration");
-        System.out.print(BROWN + "   Name: " + RESET);
+        System.out.print(BROWN + " Name: " + RESET);
         String name = sc.nextLine().trim();
         if (name.isEmpty()) {
             printError("Name cannot be empty!");
@@ -307,14 +317,22 @@ public class LibraryApp {
             return;
         }
 
-        System.out.print(BROWN + "   Password: " + RESET);
+        System.out.print(BROWN + " Email: " + RESET);
+        String email = sc.nextLine().trim();
+        if (!email.matches("^[\\w.-]+@[\\w.-]+\\.[a-zA-Z]{2,}$")) {
+            printError("Invalid email format!");
+            delay(1500);
+            return;
+        }
+
+        System.out.print(BROWN + " Password: " + RESET);
         String pass = sc.nextLine();
 
-        if (userService.addUser(name, pass)) {
-            printSuccess("User '" + name + "' registered successfully!");
+        if (userService.addUser(name, pass, email)) {
+            printSuccess("User '" + name + "' registered with email: " + email);
             service.addUser(userService.getUserByName(name));
         } else {
-            printError("User already exists.");
+            printError("Username already exists!");
         }
         delay(1800);
     }
