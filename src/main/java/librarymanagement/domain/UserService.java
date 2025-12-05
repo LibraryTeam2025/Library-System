@@ -33,13 +33,20 @@ public class UserService {
         saveBorrowedMedia();
         return true;
     }
+    public void addUser(LibraryUser user) {
+        if (user != null && getUserByName(user.getName()) == null) {
+            users.add(user);
+            saveUsers();
+            saveBorrowedMedia();
+        }
+    }
+
     public LibraryUser login(String name, String password) {
         LibraryUser user = users.stream()
                 .filter(u -> u.getName().equalsIgnoreCase(name) && u.getPassword().equals(password))
                 .findFirst().orElse(null);
 
         if (user != null && libraryService != null) {
-            // Recalculate overdue fines as soon as user logs in
             libraryService.checkOverdueMedia(user);
         }
 
@@ -64,7 +71,7 @@ public class UserService {
     }
 
     private void loadUsers() {
-        if (usersFile == null || usersFile.isEmpty()) return; // <-- التحقق من null أو فارغ
+        if (usersFile == null || usersFile.isEmpty()) return;
         File file = new File(usersFile);
         if (!file.exists()) return;
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
@@ -100,13 +107,15 @@ public class UserService {
     }
 
     public void loadBorrowedMedia() {
-        if (libraryService == null) return;
-        if (borrowedFile == null || borrowedFile.isEmpty()) return;
+        if (libraryService == null || borrowedFile == null || borrowedFile.isEmpty()) return;
+
         for (LibraryUser user : users) {
             user.getBorrowedMediaInternal().clear();
         }
+
         File file = new File(borrowedFile);
         if (!file.exists()) return;
+
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = br.readLine()) != null) {
@@ -123,12 +132,7 @@ public class UserService {
                 Media media = libraryService.getMediaById(mediaId);
                 if (user != null && media != null) {
                     BorrowedMedia bm = new BorrowedMedia(media, borrowDate, dueDate);
-                    if (returned) {
-                        bm.returnMedia();
-                        media.setAvailable(true);
-                    } else {
-                        media.setAvailable(false);
-                    }
+                    if (returned) bm.returnMedia();
                     bm.setFine(fine);
                     if (fine > 0) bm.setFineAdded(true);
                     user.getBorrowedMediaInternal().add(bm);

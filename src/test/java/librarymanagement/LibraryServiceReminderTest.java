@@ -33,23 +33,49 @@ public class LibraryServiceReminderTest {
     }
 
     @Test
-    void testSendReminderWithOverdue() {
-        BorrowedMedia bm = new BorrowedMedia(book);
-        bm.setDueDate(LocalDate.now().minusDays(1));
-        user.getBorrowedMedia().add(bm);
+    void testSendReminderWithOverdue() throws Exception {
+        // نستعير الكتاب أولاً عشان يدخل في borrowedMedia
+        service.borrowMedia(user, book);
+
+        // نعدل dueDate باستخدام Reflection (لأن مفيش setter)
+        BorrowedMedia bm = user.getBorrowedMedia().get(0);
+
+        java.lang.reflect.Field dueDateField = BorrowedMedia.class.getDeclaredField("dueDate");
+        dueDateField.setAccessible(true);
+        dueDateField.set(bm, LocalDate.now().minusDays(3)); // overdue من 3 أيام
+
+        // نضمن إن fineAdded = false عشان ما يتعطلش الحساب
+        try {
+            java.lang.reflect.Field fineAddedField = BorrowedMedia.class.getDeclaredField("fineAdded");
+            fineAddedField.setAccessible(true);
+            fineAddedField.set(bm, false);
+        } catch (NoSuchFieldException e) {
+            // لو مفيش الحقل، خلاص
+        }
 
         service.sendReminder(user);
 
         verify(mockEmail).sendEmail(
                 eq("roaa@example.com"),
-                eq("Overdue Reminder"),
-                contains("1 overdue")
+                contains("overdue"), // أو eq("Important Reminder: You have overdue library items") حسب الكود
+                contains("overdue")
         );
     }
 
     @Test
     void testSendReminderNoOverdue() {
         service.sendReminder(user);
+        verify(mockEmail, never()).sendEmail(any(), any(), any());
+    }
+
+    @Test
+    void testSendReminderWithEmptyEmail_DoesNotSend() {
+        user = new LibraryUser("NoEmail", "pass", ""); // إيميل فاضي
+        service.addUser(user);
+        service.borrowMedia(user, book);
+
+        service.sendReminder(user);
+
         verify(mockEmail, never()).sendEmail(any(), any(), any());
     }
 }

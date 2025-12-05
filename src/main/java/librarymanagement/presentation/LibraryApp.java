@@ -241,12 +241,22 @@ public class LibraryApp {
         String pass = sc.nextLine();
 
         if (adminService.addSmallAdmin(name, email, pass)) {
+
+            LibraryUser linkedUser = userService.getUserByName(name);
+            if (linkedUser == null) {
+                linkedUser = new LibraryUser(name, "", email);
+                userService.getUsers().add(linkedUser);
+                userService.saveUsers();
+            }
+
             printSuccess("Small Admin '" + name + "' created successfully!");
         } else {
             printError("Email already exists.");
         }
         delay(1800);
     }
+
+
     private static boolean userLogin() {
         printHeader("User Login");
         System.out.print(BROWN + "   Name: " + RESET);
@@ -339,20 +349,29 @@ public class LibraryApp {
 
     private static void addMedia() {
         printHeader("Add New Media");
+
         System.out.print(BROWN + "   Type (Book/CD): " + RESET);
         String type = sc.nextLine().trim();
+
         System.out.print(BROWN + "   Title: " + RESET);
         String title = sc.nextLine();
+
         System.out.print(BROWN + "   Author/Artist: " + RESET);
         String author = sc.nextLine();
+
         System.out.print(BROWN + "   ID/ISBN: " + RESET);
         String id = sc.nextLine();
 
-        Media media = type.equalsIgnoreCase("Book")
-                ? new Book(title, author, id)
-                : type.equalsIgnoreCase("CD")
-                ? new CD(title, author, id)
-                : null;
+        System.out.print(BROWN + "   Number of copies: " + RESET);
+        int copies = Integer.parseInt(sc.nextLine().trim());
+
+        Media media = null;
+
+        if (type.equalsIgnoreCase("Book")) {
+            media = new Book(title, author, id, copies);
+        } else if (type.equalsIgnoreCase("CD")) {
+            media = new CD(title, author, id, copies);
+        }
 
         if (media == null) {
             printError("Invalid type! Use 'Book' or 'CD'.");
@@ -361,6 +380,7 @@ public class LibraryApp {
         } else {
             printError("Media with this ID already exists.");
         }
+
         delay(1800);
     }
 
@@ -424,10 +444,9 @@ public class LibraryApp {
             delay(1500);
             return;
         }
-
         for (int i = 0; i < available.size(); i++) {
             Media m = available.get(i);
-            System.out.println("[" + (i + 1) + "] " + m.getType() + " - " + m.getTitle());
+            System.out.println("[" + (i + 1) + "] " + m.getType() + " - " + m.getTitle() + " | Available: " + m.getAvailableCopies());
         }
 
         System.out.print("➤ Select: ");
@@ -449,7 +468,21 @@ public class LibraryApp {
         boolean success = service.borrowMedia(currentUser, selected);
         if (success) {
             userService.saveBorrowedMedia();
-            printSuccess("Borrowed successfully!");
+
+            BorrowedMedia borrowed = currentUser.getBorrowedMediaInternal()
+                    .stream()
+                    .filter(b -> b.getMedia() == selected && !b.isReturned())
+                    .reduce((first, second) -> second)
+                    .orElse(null);
+
+            if (borrowed != null) {
+                printSuccess("Borrowed successfully!");
+                System.out.println("Borrow Date: " + borrowed.getBorrowDate());
+                System.out.println("Due Date: " + borrowed.getDueDate());
+            } else {
+                printSuccess("Borrowed successfully!");
+            }
+
         } else {
             printError("Cannot borrow this media.");
         }
@@ -457,13 +490,16 @@ public class LibraryApp {
         delay(1500);
     }
 
+
     private static void borrowMediaAsAdmin() {
         currentUser = userService.getUserByName(currentAdmin.getName());
+
         if (currentUser == null) {
-            printError("No user account linked to this admin.");
-            delay(1500);
-            return;
+            currentUser = new LibraryUser(currentAdmin.getName(), "", currentAdmin.getEmail());
+            userService.getUsers().add(currentUser);
+            userService.saveUsers();
         }
+
         borrowMedia();
     }
 
@@ -506,7 +542,7 @@ public class LibraryApp {
     }
 
     private static void returnMediaAsAdmin() {
-        currentUser = userService.getUserByName(currentAdmin.getName());
+        currentUser = currentAdmin.getUserAccount();
         if (currentUser == null) return;
         returnMedia();
     }

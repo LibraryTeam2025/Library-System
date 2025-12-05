@@ -16,21 +16,18 @@ public class BorrowedMedia {
         this.media = media;
         this.borrowDate = LocalDate.now();
         this.dueDate = borrowDate.plusDays(media.getBorrowDays());
-        media.setAvailable(false);
     }
 
     public BorrowedMedia(Media media, LocalDate dueDate) {
         this.media = media;
         this.borrowDate = LocalDate.now();
         this.dueDate = dueDate;
-        media.setAvailable(false);
     }
 
     public BorrowedMedia(Media media, LocalDate borrowDate, LocalDate dueDate) {
         this.media = media;
         this.borrowDate = borrowDate;
         this.dueDate = dueDate;
-        media.setAvailable(false);
     }
 
     public boolean isOverdue() {
@@ -44,29 +41,25 @@ public class BorrowedMedia {
 
     public double calculateFine() {
         if (returned) return 0.0;
-
         long daysLate = getOverdueDays();
         if (daysLate <= 0) return 0.0;
-
-        int ratePerDay = media instanceof CD ? 20 : 10; // CD=20 ، Book=10
+        int ratePerDay = media instanceof CD ? 20 : 10;
         fine = daysLate * ratePerDay;
         return fine;
     }
 
-
     public boolean isFineAdded() { return fineAdded; }
     public void setFineAdded(boolean fineAdded) { this.fineAdded = fineAdded; }
-
 
     public double getFine() { return fine; }
     public void setFine(double fine) { this.fine = fine; }
 
-
     public void returnMedia() {
-        returned = true;
-        media.setAvailable(true);
+        if (!returned) {
+            returned = true;
+            media.returnCopy();
+        }
     }
-
 
     public Media getMedia() { return media; }
     public LocalDate getBorrowDate() { return borrowDate; }

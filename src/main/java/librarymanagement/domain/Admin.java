@@ -6,6 +6,7 @@ public class Admin extends Person {
 
     private final Role role;
     private boolean loggedIn = false;
+    private LibraryUser userAccount;
 
     public Admin(String name, String email, String password, Role role) {
         super(name, email, password);
@@ -28,6 +29,9 @@ public class Admin extends Person {
     public Role getRole() { return role; }
     public boolean isOwner() { return role == Role.OWNER; }
     public boolean isSmallAdmin() { return role == Role.SMALL_ADMIN; }
+
+    public LibraryUser getUserAccount() { return userAccount; }
+    public void setUserAccount(LibraryUser userAccount) { this.userAccount = userAccount; }
 
     @Override
     public String toString() {

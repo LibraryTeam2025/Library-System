@@ -1,9 +1,7 @@
 package librarymanagement.domain;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class LibraryUser {
     private String name;
@@ -16,6 +14,12 @@ public class LibraryUser {
     public LibraryUser(String name, String password, String email) {
         this.name = name;
         this.password = password;
+        this.email = email != null ? email.trim() : "";
+    }
+
+    public LibraryUser(String name, String email) {
+        this.name = name;
+        this.password = ""; // يمكن تعديلها لاحقاً
         this.email = email != null ? email.trim() : "";
     }
 
@@ -32,8 +36,13 @@ public class LibraryUser {
     public List<BorrowedMedia> getBorrowedMedia() { return new ArrayList<>(borrowedMedia); }
 
     public void borrowMedia(Media media) {
-        borrowedMedia.add(new BorrowedMedia(media));
-        media.setAvailable(false);
+        if (media.borrowCopy()) {
+            borrowedMedia.add(new BorrowedMedia(media));
+        }
+    }
+
+    public void addBorrowedMedia(BorrowedMedia borrowedMediaItem) {
+        borrowedMedia.add(borrowedMediaItem);
     }
 
     public void returnMedia(Media media) {
@@ -43,7 +52,6 @@ public class LibraryUser {
                 break;
             }
         }
-        media.setAvailable(true);
         updateFineBalance();
     }
 
@@ -92,6 +100,6 @@ public class LibraryUser {
 
     @Override
     public String toString() {
-        return name + " (" + email + ") (Fine: $" + String.format("%.2f", fineBalance);
+        return name + " (" + email + ") (Fine: $" + String.format("%.2f", fineBalance) + ")";
     }
 }

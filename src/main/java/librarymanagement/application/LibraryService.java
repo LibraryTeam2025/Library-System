@@ -24,14 +24,10 @@ public class LibraryService {
         userService.setLibraryService(this);
         userService.loadBorrowedMedia();
         loadFines();
-
-        for (LibraryUser user : users) {
-            checkOverdueMedia(user);
-        }
-        saveFines(); // Save any newly calculated fines
+        for (LibraryUser user : users) checkOverdueMedia(user);
+        saveFines();
     }
 
-    // Users
     public LibraryUser getUserByName(String name) {
         if (name == null) return null;
         return users.stream().filter(u -> u.getName().equalsIgnoreCase(name)).findFirst().orElse(null);
@@ -45,27 +41,20 @@ public class LibraryService {
         return new ArrayList<>(users);
     }
 
-    // Media
     public boolean addMedia(Media media) {
-        if (media == null || media.getId() == null || media.getTitle() == null || media.getAuthor() == null) {
-            System.out.println("Invalid media: missing required fields.");
-            return false;
-        }
+        if (media == null || media.getId() == null || media.getTitle() == null || media.getAuthor() == null) return false;
+
         boolean exists = mediaList.stream().anyMatch(m -> m.getId().equalsIgnoreCase(media.getId()));
-        if (exists) {
-            System.out.println("Media with ID " + media.getId() + " already exists!");
-            return false;
-        }
-        media.setAvailable(true);
+        if (exists) return false;
+
         mediaList.add(media);
         saveMediaToFile(media);
-        System.out.println(media.getTitle() + " added successfully.");
         return true;
     }
 
     public List<Media> getAvailableMedia() {
         List<Media> available = new ArrayList<>();
-        for (Media m : mediaList) if (m.isAvailable()) available.add(m);
+        for (Media m : mediaList) if (m.getAvailableCopies() > 0) available.add(m);
         return available;
     }
 
@@ -87,74 +76,76 @@ public class LibraryService {
         }
         return results;
     }
-    public boolean borrowMedia(LibraryUser user, Media media) {
-        if (!media.isAvailable()) {
-            System.out.println("Media is not available: " + media.getTitle());
-            return false;
-        }
 
-        //  calculate any new fines before allowing borrow
+    public boolean borrowMedia(LibraryUser user, Media media) {
+        if (!media.borrowCopy()) return false;
+
         checkOverdueMedia(user);
 
         if (user.isBlocked() || user.getFineBalance() > 0) {
-            System.out.println("Cannot borrow: You have unpaid fines or overdue items.");
-            System.out.println("Please pay your fine first: $" + String.format("%.2f", user.getFineBalance()));
+            media.returnCopy();
             return false;
         }
 
         BorrowedMedia borrowed = new BorrowedMedia(media);
         user.getBorrowedMediaInternal().add(borrowed);
-        media.setAvailable(false);
 
-        System.out.println(user.getName() + " borrowed: " + media.getTitle()
-                + " | Due Date: " + borrowed.getDueDate());
-
-        // Save changes
         userService.saveBorrowedMedia();
         saveFines();
+        saveAllMedia();
 
         return true;
     }
+
     public void returnMedia(LibraryUser user, BorrowedMedia borrowed) {
         borrowed.returnMedia();
-        borrowed.getMedia().setAvailable(true);
+        borrowed.getMedia().returnCopy();
 
         checkOverdueMedia(user);
-
         if (user.getFineBalance() == 0 && !user.hasOverdueItems()) {
             user.setBlocked(false);
         }
 
-        System.out.println(user.getName() + " returned: " + borrowed.getMedia().getTitle());
+        saveAllMedia();
+    }
+
+    private void saveAllMedia() {
+        try (PrintWriter pwBooks = new PrintWriter(new FileWriter(BOOKS_FILE, false))) {
+            for (Media m : mediaList) {
+                if (m instanceof Book) {
+                    pwBooks.println(m.getId() + "|" + m.getTitle() + "|" + m.getAuthor() + "|" + m.getTotalCopies() + "|" + m.getAvailableCopies());
+                }
+            }
+        } catch (IOException ignored) {}
+
+        try (PrintWriter pwCDs = new PrintWriter(new FileWriter(CDS_FILE, false))) {
+            for (Media m : mediaList) {
+                if (m instanceof CD) {
+                    pwCDs.println(m.getId() + "|" + m.getTitle() + "|" + m.getAuthor() + "|" + m.getTotalCopies() + "|" + m.getAvailableCopies());
+                }
+            }
+        } catch (IOException ignored) {}
     }
 
     public void checkOverdueMedia(LibraryUser user) {
         double newFines = 0;
-
         for (BorrowedMedia bm : user.getBorrowedMediaInternal()) {
             if (!bm.isReturned() && !bm.isFineAdded() && bm.isOverdue()) {
                 newFines += bm.calculateFine();
                 bm.setFineAdded(true);
             }
         }
-
-        if (newFines > 0) {
-            user.addFine(newFines);
-        }
-
+        if (newFines > 0) user.addFine(newFines);
         user.setBlocked(user.getFineBalance() > 0 || user.hasOverdueItems());
     }
 
     public void payFine(LibraryUser user, double amount) {
         if (user == null || amount <= 0) return;
-
         double payment = Math.min(amount, user.getFineBalance());
         user.setFineBalance(user.getFineBalance() - payment);
 
         for (BorrowedMedia bm : user.getBorrowedMediaInternal()) {
-            if (!bm.isReturned() && bm.isOverdue()) {
-                bm.setFineAdded(true);
-            }
+            if (!bm.isReturned() && bm.isOverdue()) bm.setFineAdded(true);
         }
 
         boolean hasOverdue = user.getBorrowedMedia().stream().anyMatch(BorrowedMedia::isOverdue);
@@ -163,57 +154,40 @@ public class LibraryService {
         userService.saveUsers();
         userService.saveBorrowedMedia();
         saveFines();
-
-        System.out.println(user.getName() + " paid $" + payment + ". Remaining fine: $" + user.getFineBalance());
-    }
-
-
-    private void updateAllFines() {
-        for (LibraryUser u : users) checkOverdueMedia(u);
     }
 
     private void loadFines() {
         File file = new File(FINES_FILE);
         if (!file.exists()) return;
-
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split("\\|");
                 if (parts.length != 2) continue;
-
-                String name = parts[0];
-                double savedFine = Double.parseDouble(parts[1]);
-                LibraryUser user = getUserByName(name);
+                LibraryUser user = getUserByName(parts[0]);
                 if (user != null) {
-                    user.setFineBalance(savedFine);
-                    user.setBlocked(savedFine > 0 || user.hasOverdueItems());
+                    user.setFineBalance(Double.parseDouble(parts[1]));
+                    user.setBlocked(user.getFineBalance() > 0 || user.hasOverdueItems());
                 }
             }
-        } catch (IOException e) {
-            System.out.println("Error loading fines: " + e.getMessage());
-        }
+        } catch (IOException ignored) {}
     }
 
     public void saveFines() {
         try (PrintWriter pw = new PrintWriter(new FileWriter(FINES_FILE))) {
-            for (LibraryUser user : users) {
-                pw.println(user.getName() + "|" + user.getFineBalance());
-            }
-        } catch (IOException e) {
-            System.out.println("Error saving fines: " + e.getMessage());
-        }
+            for (LibraryUser user : users) pw.println(user.getName() + "|" + user.getFineBalance());
+        } catch (IOException ignored) {}
     }
 
-
-    // Media Files
     private void saveMediaToFile(Media media) {
         String fileName = media instanceof Book ? BOOKS_FILE : CDS_FILE;
-        try (PrintWriter pw = new PrintWriter(new FileWriter(fileName, true))) {
-            pw.println(media.getId() + "|" + media.getTitle() + "|" + media.getAuthor());
-        } catch (IOException e) {
-            System.out.println("Error saving media: " + e.getMessage());
-        }
+        try (PrintWriter pw = new PrintWriter(new FileWriter(fileName, false))) {
+            for (Media m : mediaList) {
+                if ((media instanceof Book && m instanceof Book) || (media instanceof CD && m instanceof CD)) {
+                    pw.println(m.getId() + "|" + m.getTitle() + "|" + m.getAuthor() + "|" + m.getTotalCopies() + "|" + m.getAvailableCopies());
+                }
+            }
+        } catch (IOException ignored) {}
     }
 
     private void loadMediaFromFiles() {
@@ -230,37 +204,38 @@ public class LibraryService {
             while ((line = br.readLine()) != null) {
                 line = line.trim();
                 if (line.isEmpty()) continue;
-                String[] parts = line.split("\\|", 3);
-                if (parts.length != 3) continue;
 
-                Media media = type.equals("Book")
-                        ? new Book(parts[1], parts[2], parts[0])
-                        : new CD(parts[1], parts[2], parts[0]);
+                String[] parts = line.split("\\|");
+                if (parts.length < 4) continue;
 
-                media.setAvailable(true);
+                int totalCopies = Integer.parseInt(parts[3]);
+                int availableCopies = parts.length >= 5 ? Integer.parseInt(parts[4]) : totalCopies;
+
+                Media media;
+                if (type.equals("Book")) {
+                    media = new Book(parts[1], parts[2], parts[0], totalCopies);
+                } else {
+                    media = new CD(parts[1], parts[2], parts[0], totalCopies);
+                }
+
+                media.setAvailableCopies(availableCopies);
                 mediaList.add(media);
             }
-        } catch (IOException e) {
-            System.out.println("Error loading " + fileName + ": " + e.getMessage());
-        }
+        } catch (IOException ignored) {}
     }
 
+
+
     public void sendReminder(LibraryUser user) {
-        long overdueCount = user.getBorrowedMedia().stream()
+        long count = user.getBorrowedMedia().stream()
                 .filter(bm -> !bm.isReturned() && LocalDate.now().isAfter(bm.getDueDate()))
                 .count();
 
-        if (overdueCount > 0 && !user.getEmail().trim().isEmpty()) {
+        if (count > 0 && !user.getEmail().trim().isEmpty()) {
             String subject = "Important Reminder: You have overdue library items";
-            String message = "Dear " + user.getName() + ",\n\n" +
-                    "You have " + overdueCount + " overdue item(s).\n" +
-                    "Please return them as soon as possible to avoid additional fines.\n\n" +
-                    "Thank you for your cooperation,\nLibrary Team";
-
-            emailService.sendEmail(user.getEmail(), subject, message);  // ← إرسال حقيقي
-        } else {
-            System.out.println(user.getName() + " has no overdue items or does not have an email.");
-
+            String message = "Dear " + user.getName() + ",\n\nYou have " + count +
+                    " overdue item(s).\nPlease return them as soon as possible.\n\nLibrary Team";
+            emailService.sendEmail(user.getEmail(), subject, message);
         }
     }
 }

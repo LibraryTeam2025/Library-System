@@ -7,22 +7,48 @@ public abstract class Media {
     protected String title;
     protected String author;
     protected String id;
-    protected boolean available = true;
-
+    protected int totalCopies;
+    protected int availableCopies;
     private final FineStrategy fineStrategy;
 
-    public Media(String title, String author, String id, FineStrategy fineStrategy) {
+    public Media(String title, String author, String id, int copies, FineStrategy fineStrategy) {
         this.title = title;
         this.author = author;
         this.id = id;
+        this.totalCopies = Math.max(copies, 1);
+        this.availableCopies = this.totalCopies;
         this.fineStrategy = fineStrategy;
     }
 
     public String getTitle() { return title; }
     public String getAuthor() { return author; }
     public String getId() { return id; }
-    public boolean isAvailable() { return available; }
-    public void setAvailable(boolean available) { this.available = available; }
+
+    public int getTotalCopies() { return totalCopies; }
+    public int getAvailableCopies() { return availableCopies; }
+
+    public void addCopy() {
+        totalCopies++;
+        availableCopies++;
+    }
+
+    public boolean borrowCopy() {
+        if (availableCopies > 0) {
+            availableCopies--;
+            return true;
+        }
+        return false;
+    }
+
+    public void returnCopy() {
+        if (availableCopies < totalCopies) availableCopies++;
+    }
+
+    public void setAvailableCopies(int availableCopies) {
+        if (availableCopies >= 0 && availableCopies <= totalCopies) {
+            this.availableCopies = availableCopies;
+        }
+    }
 
     public abstract int getBorrowDays();
 
@@ -43,6 +69,6 @@ public abstract class Media {
 
     @Override
     public String toString() {
-        return getType() + " " + title + " - " + author + " (ID: " + id + ")";
+        return getType() + " " + title + " - " + author + " (ID: " + id + ", Available: " + availableCopies + ")";
     }
 }
