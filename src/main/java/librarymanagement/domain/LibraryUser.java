@@ -19,7 +19,7 @@ public class LibraryUser {
 
     public LibraryUser(String name, String email) {
         this.name = name;
-        this.password = ""; // يمكن تعديلها لاحقاً
+        this.password = "";
         this.email = email != null ? email.trim() : "";
     }
 
@@ -35,25 +35,6 @@ public class LibraryUser {
     public List<BorrowedMedia> getBorrowedMediaInternal() { return borrowedMedia; }
     public List<BorrowedMedia> getBorrowedMedia() { return new ArrayList<>(borrowedMedia); }
 
-    public void borrowMedia(Media media) {
-        if (media.borrowCopy()) {
-            borrowedMedia.add(new BorrowedMedia(media));
-        }
-    }
-
-    public void addBorrowedMedia(BorrowedMedia borrowedMediaItem) {
-        borrowedMedia.add(borrowedMediaItem);
-    }
-
-    public void returnMedia(Media media) {
-        for (BorrowedMedia bm : borrowedMedia) {
-            if (bm.getMedia().equals(media) && !bm.isReturned()) {
-                bm.returnMedia();
-                break;
-            }
-        }
-        updateFineBalance();
-    }
 
     public void setFineBalance(double amount) {
         fineBalance = Math.max(0, amount);

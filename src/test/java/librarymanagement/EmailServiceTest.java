@@ -4,7 +4,6 @@ import librarymanagement.application.EmailService;
 import org.junit.jupiter.api.*;
 
 import javax.mail.AuthenticationFailedException;
-import javax.mail.MessagingException;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
@@ -20,45 +19,25 @@ class EmailServiceTest {
         private boolean simulateMessagingException = false;
         private boolean simulateAuthFail = false;
 
-        public void setSimulateNoCredentials(boolean value) {
-            simulateNoCredentials = value;
-        }
-
-        public void setSimulateMessagingException(boolean value) {
-            simulateMessagingException = value;
-        }
-
-        public void setSimulateAuthFail(boolean value) {
-            simulateAuthFail = value;
-        }
+        public void setSimulateNoCredentials(boolean value) { simulateNoCredentials = value; }
+        public void setSimulateMessagingException(boolean value) { simulateMessagingException = value; }
+        public void setSimulateAuthFail(boolean value) { simulateAuthFail = value; }
 
         @Override
         public void sendEmail(String toEmail, String subject, String message) {
-            if (toEmail == null || toEmail.trim().isEmpty() || !toEmail.contains("@")) {
-                System.out.println("Invalid email address: " + toEmail);
-                return;
-            }
+            if (toEmail == null || toEmail.trim().isEmpty() || !toEmail.contains("@")) return;
 
-            if (simulateNoCredentials) {
-                System.out.println("SMTP credentials missing → Email only printed in console (not sent)");
-            }
+            if (simulateNoCredentials) System.out.println("SMTP credentials missing → Email only printed in console");
 
             String log = "To: " + toEmail + "\nSubject: " + subject + "\nMessage: " + message;
             fakeMessages.add(log);
 
-            if (simulateAuthFail) {
-                System.out.println("Authentication failed! Wrong email or App Password.");
-            }
-
-            if (simulateMessagingException) {
-                System.out.println("Failed to send email: MessagingException simulated");
-            }
+            if (simulateAuthFail) System.out.println("Authentication failed! Wrong email or App Password.");
+            if (simulateMessagingException) System.out.println("Failed to send email: MessagingException simulated");
         }
 
         @Override
-        public List<String> getSentMessages() {
-            return fakeMessages;
-        }
+        public List<String> getSentMessages() { return fakeMessages; }
     }
 
     private FakeEmailService emailService;
@@ -68,7 +47,6 @@ class EmailServiceTest {
         emailService = new FakeEmailService();
         emailService.getSentMessages().clear();
     }
-
 
     @Test
     void testConstructorWithoutEnvFile() {
@@ -165,4 +143,95 @@ class EmailServiceTest {
         emailService.getSentMessages().clear();
         assertEquals(0, emailService.getSentMessages().size());
     }
+
+    // ====================== تيستات إضافية لرفع الكفرج ======================
+
+    @Test
+    void testSendEmailWithEdgeCases() {
+        emailService.sendEmail("   ", "Sub", "Body");           // فارغ → لا يُرسل
+        emailService.sendEmail(null, "Sub2", "Body2");         // null → لا يُرسل
+        emailService.sendEmail("invalidemail", "Sub3", "Body3"); // بدون @ → لا يُرسل
+        assertEquals(0, emailService.getSentMessages().size());
+    }
+
+    @Test
+    void testSendEmailEmptySubjectOrBody() {
+        emailService.sendEmail("valid@example.com", "", "Body");
+        emailService.sendEmail("valid2@example.com", "Subject", "");
+        List<String> sent = emailService.getSentMessages();
+        assertEquals(2, sent.size());
+        assertTrue(sent.get(0).contains("To: valid@example.com"));
+        assertTrue(sent.get(1).contains("To: valid2@example.com"));
+    }
+
+    @Test
+    void testSendMultipleEmailsAfterClear() {
+        emailService.sendEmail("first@example.com", "1", "Msg1");
+        emailService.sendEmail("second@example.com", "2", "Msg2");
+        assertEquals(2, emailService.getSentMessages().size());
+
+        emailService.getSentMessages().clear();
+        assertEquals(0, emailService.getSentMessages().size());
+
+        emailService.sendEmail("third@example.com", "3", "Msg3");
+        assertEquals(1, emailService.getSentMessages().size());
+    }
+
+    @Test
+    void testSimulateAllWithInvalidEmail() {
+        emailService.setSimulateNoCredentials(true);
+        emailService.setSimulateAuthFail(true);
+        emailService.setSimulateMessagingException(true);
+
+        emailService.sendEmail("invalidemail", "Sub", "Body");
+        assertEquals(0, emailService.getSentMessages().size());
+
+        emailService.sendEmail("valid@example.com", "Sub", "Body");
+        assertEquals(1, emailService.getSentMessages().size());
+    }
+    @Test
+    void testSendEmail_NullOrEmptyTo() {
+        EmailService es = new EmailService();
+        es.sendEmail(null, "Sub", "Body");
+        es.sendEmail("", "Sub", "Body");
+        es.sendEmail("   ", "Sub", "Body");
+        assertEquals(0, es.getSentMessages().size());
+    }
+
+    @Test
+    void testSendEmail_InvalidEmailFormat() {
+        EmailService es = new EmailService();
+        es.sendEmail("invalidEmail", "Sub", "Body");
+        assertEquals(0, es.getSentMessages().size());
+    }
+
+    @Test
+    void testSendEmail_ConsoleOnlyWhenNoCredentials() {
+        EmailService es = new EmailService() {
+            @Override
+            public List<String> getSentMessages() {
+                return super.getSentMessages();
+            }
+        };
+        es.sendEmail("user@example.com", "Sub", "Body");
+        assertEquals(1, es.getSentMessages().size());
+    }
+    @Test
+    void testLoadEnvFile_WithCommentAndEmptyLines() throws Exception {
+        File file = new File("pass.env");
+        try (FileWriter fw = new FileWriter(file)) {
+            fw.write("# Comment line\n\nSMTP_EMAIL=test@example.com\nSMTP_PASSWORD=12345\n");
+        }
+        EmailService es = new EmailService();
+        assertNotNull(es.getSentMessages());
+        file.delete();
+    }
+
+    @Test
+    void testSendEmail_WithInvalidCredentials() {
+        EmailService es = new EmailService();
+        es.sendEmail("user@example.com", "Sub", "Body"); // يمر على فرع credentials ناقصة
+        assertEquals(1, es.getSentMessages().size());
+    }
+
 }

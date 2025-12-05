@@ -1,7 +1,5 @@
 package librarymanagement.application;
 
-import librarymanagement.domain.LibraryUser;
-import librarymanagement.domain.UserService;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -26,16 +24,16 @@ public class EmailService {
         this.appPassword = env.getOrDefault("SMTP_PASSWORD", System.getenv("SMTP_PASSWORD"));
 
         if (fromEmail == null || appPassword == null || fromEmail.isEmpty() || appPassword.isEmpty()) {
-            System.out.println("Warning: Email credentials not found! Emails will only be printed to the console.");
+            System.out.println("Warning: Email data not found! Emails will be printed to the console only.");
+
         }
     }
 
-    // دالة صغيرة جديدة نحطها تحت الـ constructor
     private Map<String, String> loadEnvFromFile() {
         Map<String, String> map = new HashMap<>();
         File file = new File("pass.env");
         if (!file.exists()) {
-            System.out.println("The pass.env file is not found in the project directory!");
+            System.out.println("pass.env file not found in the project folder!");
             return map;
         }
 
@@ -51,6 +49,7 @@ public class EmailService {
             }
         } catch (Exception e) {
             System.out.println("Failed to read pass.env file: " + e.getMessage());
+
         }
         return map;
     }
@@ -101,7 +100,6 @@ public class EmailService {
             e.printStackTrace();
         }
     }
-
     public void sendEmail(String toEmail, String subject, String message) {
         sendRealEmail(toEmail, subject, message);
     }

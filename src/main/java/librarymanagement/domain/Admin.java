@@ -30,9 +30,6 @@ public class Admin extends Person {
     public boolean isOwner() { return role == Role.OWNER; }
     public boolean isSmallAdmin() { return role == Role.SMALL_ADMIN; }
 
-    public LibraryUser getUserAccount() { return userAccount; }
-    public void setUserAccount(LibraryUser userAccount) { this.userAccount = userAccount; }
-
     @Override
     public String toString() {
         return name + " (" + role + ")";

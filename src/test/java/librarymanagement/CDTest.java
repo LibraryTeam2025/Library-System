@@ -8,22 +8,22 @@ public class CDTest {
 
     @Test
     void testCDCreation() {
-        CD cd = new CD("Top Hits", "Artist", "CD001");
+        CD cd = new CD("Top Hits", "Artist", "CD001", 2);
         assertEquals("Top Hits", cd.getTitle());
         assertEquals("Artist", cd.getAuthor());
         assertEquals("CD001", cd.getId());
-        assertTrue(cd.isAvailable());
+        assertTrue(cd.getAvailableCopies() > 0);
     }
 
     @Test
     void testBorrowDays() {
-        CD cd = new CD("Jazz", "Miles", "CD002");
+        CD cd = new CD("Jazz", "Miles", "CD002", 1);
         assertEquals(7, cd.getBorrowDays());
     }
 
     @Test
     void testFineAmount() {
-        CD cd = new CD("Rock", "Band", "CD003");
+        CD cd = new CD("Rock", "Band", "CD003", 1);
         BorrowedMedia bm = new BorrowedMedia(cd);
         try {
             var field = BorrowedMedia.class.getDeclaredField("dueDate");
@@ -37,16 +37,15 @@ public class CDTest {
 
     @Test
     void testToString() {
-        CD cd = new CD("Rock", "Band", "CD003");
-        assertEquals("[CD] Rock by Band (ID: CD003)", cd.toString());
+        CD cd = new CD("Rock", "Band", "CD003", 1);
+        String expected = "[CD] Rock by Band (ID: CD003, Available: 1)";
+        assertEquals(expected, cd.toString());
     }
 
-    // الحل السحري اللي يشتغل في كل المشاريع مهما كان IntelliJ متلخبط
     @Test
     void testCD_IsNotBook() {
-        CD cd = new CD("Pop", "Singer", "CD004");
+        CD cd = new CD("Pop", "Singer", "CD004", 1);
 
-        // نستخدم getClass() بدل instanceof → يقضي على الإرور نهائيًا
         assertNotEquals(Book.class, cd.getClass(), "CD class must be different from Book class");
         assertEquals(CD.class, cd.getClass(), "Object must be of type CD");
         assertTrue(Media.class.isAssignableFrom(cd.getClass()), "CD must extend Media");
@@ -54,8 +53,8 @@ public class CDTest {
 
     @Test
     void testCDFine_IsHigherThanBook() {
-        Book book = new Book("Test Book", "Author", "B001");
-        CD cd = new CD("Test CD", "Artist", "CD001");
+        Book book = new Book("Test Book", "Author", "B001", 1);
+        CD cd = new CD("Test CD", "Artist", "CD001", 1);
 
         int bookFine = FineCalculator.calculateFine(book, 5);
         int cdFine = FineCalculator.calculateFine(cd, 5);

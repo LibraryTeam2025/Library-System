@@ -19,7 +19,6 @@ public class UserService {
         loadUsers();
     }
 
-    public static UserService getInstance() { return instance; }
 
     public void setLibraryService(LibraryService libraryService) {
         this.libraryService = libraryService;
@@ -32,13 +31,6 @@ public class UserService {
         saveUsers();
         saveBorrowedMedia();
         return true;
-    }
-    public void addUser(LibraryUser user) {
-        if (user != null && getUserByName(user.getName()) == null) {
-            users.add(user);
-            saveUsers();
-            saveBorrowedMedia();
-        }
     }
 
     public LibraryUser login(String name, String password) {

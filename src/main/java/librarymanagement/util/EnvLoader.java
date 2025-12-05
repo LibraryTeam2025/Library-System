@@ -1,31 +1,29 @@
 package librarymanagement.util;
 
-import java.io.*;
-import java.nio.file.*;
-import java.util.*;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 public class EnvLoader {
+
     public static Map<String, String> load() {
+        return load(Path.of("pass.env"));
+    }
+
+    public static Map<String, String> load(Path filePath) {
         Map<String, String> map = new HashMap<>();
-        Path path = Paths.get("pass.env");
+        if (!Files.exists(filePath)) return map;
 
-        if (!Files.exists(path)) {
-            System.err.println("Warning: pass.env not found!");
-            return map;
-        }
-
-        try (BufferedReader br = Files.newBufferedReader(path)) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                line = line.trim();
-                if (line.isEmpty() || line.startsWith("#")) continue;
+        try {
+            for (String line : Files.readAllLines(filePath)) {
+                if (!line.contains("=")) continue;
                 String[] parts = line.split("=", 2);
-                if (parts.length == 2) {
-                    map.put(parts[0].trim(), parts[1].trim());
-                }
+                map.put(parts[0], parts[1]);
             }
         } catch (IOException e) {
-            System.err.println("Error reading pass.env");
+            e.printStackTrace();
         }
         return map;
     }

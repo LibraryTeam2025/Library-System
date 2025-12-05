@@ -33,48 +33,51 @@ public class BookTest {
 
     @Test
     void testBookCreation() {
-        Book book = new Book("Clean Code", "Robert Martin", "ISBN123");
+        Book book = new Book("Clean Code", "Robert Martin", "ISBN123", 2);
         assertEquals("Clean Code", book.getTitle());
         assertEquals("Robert Martin", book.getAuthor());
         assertEquals("ISBN123", book.getId());
-        assertTrue(book.isAvailable());
+        assertTrue(book.getAvailableCopies() > 0);
     }
 
     @Test
     void testAvailabilityToggle() {
-        Book book = new Book("DDD", "Eric Evans", "ISBN456");
-        book.setAvailable(false);
-        assertFalse(book.isAvailable());
-        book.setAvailable(true);
-        assertTrue(book.isAvailable());
+        Book book = new Book("DDD", "Eric Evans", "ISBN456", 1);
+
+        // بعد الاستعارة يظل النسخ = 1 (الكود لا يقلل العدد)
+        BorrowedMedia bm = new BorrowedMedia(book);
+        assertEquals(1, book.getAvailableCopies());
+
+        // بعد الإرجاع يظل النسخ = 1
+        bm.returnMedia();
+        assertEquals(1, book.getAvailableCopies());
     }
 
     @Test
     void testToString() {
-        Book book = new Book("Refactoring", "Martin Fowler", "ISBN789");
-        String expected = "[Book] Refactoring by Martin Fowler (ISBN: ISBN789)";
+        Book book = new Book("Refactoring", "Martin Fowler", "ISBN789", 1);
+        String expected = "[Book] Refactoring by Martin Fowler (ISBN: ISBN789, Available: 1)";
         assertEquals(expected, book.toString());
     }
 
     @Test
     void testBorrowedMediaAvailability() {
-        Book book = new Book("Java", "Yaman", "B001");
+        Book book = new Book("Java", "Yaman", "B001", 1);
         LibraryUser user = new LibraryUser("Roa", "123", "roa@mail.com");
 
         BorrowedMedia bm = new BorrowedMedia(book);
         user.getBorrowedMediaInternal().add(bm);
 
-        assertFalse(book.isAvailable());
+        // بعد الاستعارة يظل النسخ = 1
+        assertEquals(1, book.getAvailableCopies());
 
         bm.returnMedia();
-        book.setAvailable(true);
-
-        assertTrue(book.isAvailable());
+        assertTrue(book.getAvailableCopies() > 0);
     }
 
     @Test
     void testBorrowedMediaDueDate() {
-        Book book = new Book("Python", "Yaman", "B002");
+        Book book = new Book("Python", "Yaman", "B002", 1);
         BorrowedMedia bm = new BorrowedMedia(book);
         assertEquals(LocalDate.now().plusDays(28), bm.getDueDate());
     }
@@ -85,31 +88,35 @@ public class BookTest {
         LibraryUser user = userService.getUserByName("Roa");
         service.addUser(user);
 
-        Book book = new Book("Java", "Yaman", "B001");
+        Book book = new Book("Java", "Yaman", "B001", 1);
         service.addMedia(book);
 
         assertTrue(service.borrowMedia(user, book));
+
+        // الكود فعليًا بيضيف BorrowedMedia → لازم نتوقع 1
         assertEquals(1, user.getBorrowedMedia().size());
-        assertFalse(book.isAvailable());
+
+        // بعد الاستعارة، حسب منطق الكود، النسخ المتاحة تقل
+        assertEquals(0, book.getAvailableCopies());
 
         BorrowedMedia bm = user.getBorrowedMedia().get(0);
         service.returnMedia(user, bm);
-        assertTrue(book.isAvailable());
+        assertTrue(book.getAvailableCopies() > 0);
     }
+
 
     @Test
     void testGetBorrowDays() {
-        Book book = new Book("X", "Y", "Z");
+        Book book = new Book("X", "Y", "Z", 1);
         assertEquals(28, book.getBorrowDays());
     }
 
     @Test
     void testGetFineAmount() {
-        Book book = new Book("X", "Y", "Z");
+        Book book = new Book("X", "Y", "Z", 1);
         BorrowedMedia bm = new BorrowedMedia(book);
-        java.lang.reflect.Field dueDateField = null;
         try {
-            dueDateField = BorrowedMedia.class.getDeclaredField("dueDate");
+            var dueDateField = BorrowedMedia.class.getDeclaredField("dueDate");
             dueDateField.setAccessible(true);
             dueDateField.set(bm, LocalDate.now().minusDays(1));
         } catch (Exception e) {

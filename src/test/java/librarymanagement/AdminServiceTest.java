@@ -85,11 +85,8 @@ public class AdminServiceTest {
     void testGetAdminsReturnsIndependentCopy() {
         var originalList = service.getAdmins();
         assertEquals(2, originalList.size());
-
         service.addSuperAdmin("temp", "temp@mail.com", "temp");
-
         assertEquals(2, originalList.size());
-
         assertEquals(3, service.getAdmins().size());
         assertTrue(originalList.stream().anyMatch(a -> a.getEmail().equals("admin1@mail.com")));
     }

@@ -29,9 +29,8 @@ public class LibraryService {
         for (LibraryUser user : users) checkOverdueMedia(user);
         saveFines();
     }
-    // أضف هذه الدالة في LibraryService.java
     public List<Media> getAllMedia() {
-        return new ArrayList<>(mediaList);  // ترجع نسخة من القائمة الكاملة
+        return new ArrayList<>(mediaList);
     }
     public boolean deleteMedia(String mediaId) {
         if (mediaId == null || mediaId.trim().isEmpty()) return false;
@@ -39,17 +38,16 @@ public class LibraryService {
         Media toRemove = getMediaById(mediaId);
         if (toRemove == null) return false;
 
-        // تحقق إذا كانت مستعارة حاليًا
         boolean isBorrowed = users.stream()
                 .anyMatch(user -> user.getBorrowedMedia().stream()
                         .anyMatch(bm -> !bm.isReturned() && bm.getMedia().getId().equalsIgnoreCase(mediaId)));
 
         if (isBorrowed) {
-            return false;  // ما يحذف إذا مستعارة
+            return false;
         }
 
         mediaList.removeIf(m -> m.getId().equalsIgnoreCase(mediaId));
-        saveAllMedia();  // يحفظ التغييرات في الملفات
+        saveAllMedia();
         return true;
     }
     public LibraryUser getUserByName(String name) {
@@ -102,21 +100,22 @@ public class LibraryService {
     }
 
     public boolean borrowMedia(LibraryUser user, Media media) {
-        if (!media.borrowCopy()) return false;
-
+        if (user == null || media == null) return false;
+        if (user.isBlocked()) {
+            return false;
+        }
         checkOverdueMedia(user);
-
-        if (user.isBlocked() || user.getFineBalance() > 0) {
-            media.returnCopy(); // استرجاع النسخة لو المستخدم محظور
+        if (user.getFineBalance() > 0 || user.isBlocked()) {
             return false;
         }
 
+        if (!media.borrowCopy()) return false;
         BorrowedMedia borrowed = new BorrowedMedia(media);
         user.getBorrowedMediaInternal().add(borrowed);
 
         userService.saveBorrowedMedia();
         saveFines();
-        saveAllMedia();  // أضف هذا السطر هنا
+        saveAllMedia();
 
         return true;
     }
@@ -135,7 +134,7 @@ public class LibraryService {
 
     }
 
-    private void saveAllMedia() {
+    public void saveAllMedia() {
         try (PrintWriter pwBooks = new PrintWriter(new FileWriter(BOOKS_FILE, false))) {
             for (Media m : mediaList) {
                 if (m instanceof Book) {
@@ -251,19 +250,22 @@ public class LibraryService {
             }
         } catch (IOException ignored) {}
     }
-
-
-
     public void sendReminder(LibraryUser user) {
-        long count = user.getBorrowedMedia().stream()
+        long overdueCount = user.getBorrowedMedia().stream()
                 .filter(bm -> !bm.isReturned() && LocalDate.now().isAfter(bm.getDueDate()))
                 .count();
 
-        if (count > 0 && !user.getEmail().trim().isEmpty()) {
-            String subject = "Important Reminder: You have overdue library items";
-            String message = "Dear " + user.getName() + ",\n\nYou have " + count +
-                    " overdue item(s).\nPlease return them as soon as possible.\n\nLibrary Team";
+        if (overdueCount > 0 && !user.getEmail().trim().isEmpty()) {
+            String subject = "Important Reminder: You have overdue items in the library";
+            String message = "Dear " + user.getName() + ",\n\n" +
+                    "You have " + overdueCount + " item(s) overdue.\n" +
+                    "Please return them as soon as possible to avoid additional fines.\n\n" +
+                    "Thank you for your cooperation,\nLibrary Team";
+
             emailService.sendEmail(user.getEmail(), subject, message);
+        } else {
+            System.out.println(user.getName() + " has no overdue items or does not have an email.");
         }
+
     }
 }
