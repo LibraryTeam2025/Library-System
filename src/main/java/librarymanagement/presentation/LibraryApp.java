@@ -3,8 +3,9 @@ package librarymanagement.presentation;
 import librarymanagement.application.*;
 import librarymanagement.domain.*;
 import librarymanagement.util.EnvLoader;
-
+import java.util.ArrayList;
 import java.time.LocalDate;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -177,21 +178,22 @@ public class LibraryApp {
         if (currentAdmin.isOwner()) {
             System.out.println(BROWN + "   1. Register New Small Admin" + RESET);
             System.out.println(BROWN + "   2. Delete User" + RESET);
-            System.out.println(BROWN + "   3. Logout" + RESET);
+            System.out.println(BROWN + "   3. View User Details" + RESET);
+            System.out.println(BROWN + "   4. Logout" + RESET);
         } else {
+            // Small Admin Menu - محدثة
             System.out.println(BROWN + "   1. Add Book/CD" + RESET);
             System.out.println(BROWN + "   2. Search Book/CD" + RESET);
-            System.out.println(BROWN + "   3. Borrow Book/CD" + RESET);
-            System.out.println(BROWN + "   4. Return Book/CD" + RESET);
             System.out.println(BROWN + "   5. My Overdue Items" + RESET);
-            System.out.println(BROWN + "   6. Pay Fine" + RESET);
-            System.out.println(BROWN + "   7. View Overdue Users" + RESET);
-            System.out.println(BROWN + "   8. Send Overdue Reminder" + RESET);
-            System.out.println(BROWN + "   9. Logout" + RESET);
+            System.out.println(BROWN + "   7. View All Users" + RESET);
+            System.out.println(BROWN + "   8. View Borrowed Media" + RESET);
+            System.out.println(BROWN + "   9. View All Media" + RESET);
+            System.out.println(BROWN + "  10. Delete Book/CD" + RESET);
+            System.out.println(BROWN + "  11. Send Overdue Reminder" + RESET);
+            System.out.println(BROWN + "  12. Logout" + RESET);
         }
         System.out.print(DARK_BROWN + "\n   ➤ Choose: " + RESET);
     }
-
     private static void adminFlow() {
         if (!adminLogin()) return;
 
@@ -203,27 +205,197 @@ public class LibraryApp {
                 switch (choice) {
                     case 1 -> registerNewSmallAdmin();
                     case 2 -> unregisterUser();
-                    case 3 -> { logoutAdmin(); return; }
+                    case 3 -> viewUserDetailsByOwner();   // جديد
+                    case 4 -> { logoutAdmin(); return; }
                     default -> printError("Invalid choice!");
                 }
             } else {
                 switch (choice) {
                     case 1 -> addMedia();
                     case 2 -> searchMedia();
-                    case 3 -> borrowMediaAsAdmin();
-                    case 4 -> returnMediaAsAdmin();
                     case 5 -> checkOverdueItemsForAdmin();
-                    case 6 -> payFineForAdmin();
-                    case 7 -> viewOverdueUsers();
-                    case 8 -> sendOverdueReminderToAnyone();
-                    case 9 -> { logoutAdmin(); return; }
+                    case 7 -> viewAllUsersBySmallAdmin();           // جديد
+                    case 8 -> viewBorrowedMediaBySmallAdmin();      // جديد
+                    case 9 -> viewAllMediaBySmallAdmin();           // جديد
+                    case 10 -> deleteMediaBySmallAdmin();
+                    case 11 -> sendOverdueReminderToAnyone();
+                    case 12 -> { logoutAdmin(); return; }
                     default -> printError("Invalid choice!");
                 }
             }
             delay(800);
         }
     }
+    private static void viewUserDetailsByOwner() {
+        printHeader("View User Details (Owner Only)");
 
+        List<LibraryUser> allUsers = userService.getUsers();
+
+        if (allUsers.isEmpty()) {
+            printError("No registered users yet.");
+            delay(2000);
+            return;
+        }
+
+        // عرض قائمة المستخدمين
+        System.out.println(BEIGE + "   Select a user to view details:" + RESET);
+        for (int i = 0; i < allUsers.size(); i++) {
+            LibraryUser u = allUsers.get(i);
+            String status = u.isBlocked() ? " [BLOCKED]" : "";
+            String fine = u.getFineBalance() > 0 ? " | Fine: $" + String.format("%.2f", u.getFineBalance()) : "";
+            System.out.println(BROWN + "   [" + (i + 1) + "] " + u.getName() + " (" + u.getEmail() + ")" + fine + RED + status + RESET);
+        }
+
+        System.out.print(DARK_BROWN + "   ➤ Choose number (0 to cancel): " + RESET);
+        int choice = getIntInput();
+
+        if (choice == 0) return;
+        if (choice < 1 || choice > allUsers.size()) {
+            printError("Invalid selection!");
+            delay(1500);
+            return;
+        }
+
+        LibraryUser selected = allUsers.get(choice - 1);
+
+
+        service.checkOverdueMedia(selected);
+        selected.updateFineBalance();
+
+
+        printHeader("User Details: " + selected.getName());
+
+        System.out.println(BEIGE + "   Name         : " + selected.getName() + RESET);
+        System.out.println(BEIGE + "   Email        : " + selected.getEmail() + RESET);
+        System.out.println(BEIGE + "   Fine Balance : $" + String.format("%.2f", selected.getFineBalance()) + " NIS" + RESET);
+        System.out.println(BEIGE + "   Status       : " + (selected.isBlocked() ? RED + "BLOCKED" : GREEN + "Active") + RESET);
+
+        List<BorrowedMedia> borrowed = selected.getBorrowedMedia();
+
+        if (borrowed.isEmpty()) {
+            System.out.println(LIGHT_BEIGE + "\n   No borrowed items." + RESET);
+        } else {
+            System.out.println(BEIGE + "\n   Borrowed Items (" + borrowed.size() + "):" + RESET);
+            System.out.println(DARK_BROWN + "   ═════════════════════════════════════════════════" + RESET);
+
+            for (BorrowedMedia bm : borrowed) {
+                Media m = bm.getMedia();
+                String type = m instanceof Book ? "[BOOK]" : "[CD]";
+                String status;
+
+                if (bm.isReturned()) {
+                    status = GREEN + " [RETURNED]" + RESET;
+                } else if (bm.isOverdue()) {
+                    status = RED + " [OVERDUE] " + bm.getOverdueDays() + " day(s) late | Fine: $" + String.format("%.2f", bm.getFine()) + RESET;
+                } else {
+                    status = LIGHT_BEIGE + " [ON TIME] Due: " + bm.getDueDate() + RESET;
+                }
+
+                System.out.printf("   %s %s - %s\n", type, m.getTitle(), m.getAuthor());
+                System.out.println("        Borrow Date: " + bm.getBorrowDate() + " | Due Date: " + bm.getDueDate());
+                System.out.println("        " + status);
+                System.out.println(DARK_BROWN + "        ───────────────────────────────────────────" + RESET);
+            }
+        }
+
+        System.out.println(LIGHT_BEIGE + "\n   Press Enter to go back..." + RESET);
+        sc.nextLine();
+    }
+    private static void viewAllUsersBySmallAdmin() {
+        printHeader("All Registered Users");
+
+        List<LibraryUser> users = userService.getUsers();
+        if (users.isEmpty()) {
+            printError("No users registered yet.");
+            delay(2000);
+            return;
+        }
+
+        System.out.println(BEIGE + "   Total Users: " + users.size() + RESET);
+        System.out.println(DARK_BROWN + "   ═════════════════════════════════════════════════" + RESET);
+
+        for (int i = 0; i < users.size(); i++) {
+            LibraryUser u = users.get(i);
+            service.checkOverdueMedia(u); // تحديث الغرامات
+
+            String status = u.isBlocked() ? RED + " [BLOCKED]" : GREEN + " [ACTIVE]";
+            String fine = u.getFineBalance() > 0 ? " | Fine: $" + String.format("%.2f", u.getFineBalance()) : "";
+            long borrowedCount = u.getBorrowedMedia().stream().filter(bm -> !bm.isReturned()).count();
+
+            System.out.printf(BROWN + "   [%2d] " + RESET + "%-20s %-25s %2d borrowed%s %s%n",
+                    i+1, u.getName(), "(" + u.getEmail() + ")", borrowedCount, fine, status);
+        }
+
+        System.out.println(LIGHT_BEIGE + "\n   Press Enter to continue..." + RESET);
+        sc.nextLine();
+    }
+
+    private static void viewBorrowedMediaBySmallAdmin() {
+        printHeader("Currently Borrowed Media");
+
+        List<BorrowedMedia> allBorrowed = new ArrayList<>();
+        for (LibraryUser user : userService.getUsers()) {
+            for (BorrowedMedia bm : user.getBorrowedMedia()) {
+                if (!bm.isReturned()) {
+                    allBorrowed.add(bm);
+                }
+            }
+        }
+
+        if (allBorrowed.isEmpty()) {
+            System.out.println(GREEN + "   No items currently borrowed. Great!" + RESET);
+        } else {
+            System.out.println(BEIGE + "   Total Borrowed Items: " + allBorrowed.size() + RESET);
+            System.out.println(DARK_BROWN + "   ═══════════════════════════════════════════════════════════" + RESET);
+
+            for (BorrowedMedia bm : allBorrowed) {
+                Media m = bm.getMedia();
+                LibraryUser user = userService.getUsers().stream()
+                        .filter(u -> u.getBorrowedMedia().contains(bm))
+                        .findFirst().orElse(null);
+
+                String type = m instanceof Book ? "[BOOK]" : "[CD]";
+                String overdue = bm.isOverdue() ? RED + " [OVERDUE " + bm.getOverdueDays() + " days]" : "";
+
+                System.out.printf("   %s %-25s by %-15s → Borrowed by: %-20s | Due: %s %s%n",
+                        type, m.getTitle(), m.getAuthor(),
+                        user != null ? user.getName() : "Unknown",
+                        bm.getDueDate(), overdue + RESET);
+            }
+        }
+
+        System.out.println(LIGHT_BEIGE + "\n   Press Enter to continue..." + RESET);
+        sc.nextLine();
+    }
+
+    private static void viewAllMediaBySmallAdmin() {
+        printHeader("All Media in Library");
+
+        List<Media> all = service.getAllMedia();  // الدالة اللي أضفناها قبل
+
+        if (all.isEmpty()) {
+            printError("No media added yet.");
+            delay(2000);
+            return;
+        }
+
+        System.out.println(BEIGE + "   Total Items: " + all.size() + RESET);
+        System.out.println(DARK_BROWN + "   ═══════════════════════════════════════════════════════════" + RESET);
+
+        for (Media m : all) {
+            String type = m instanceof Book ? "[BOOK]" : "[CD]";
+            String avail = m.getAvailableCopies() > 0 ?
+                    GREEN + "Available: " + m.getAvailableCopies() :
+                    RED + "NOT AVAILABLE";
+
+            System.out.printf("   %s %-30s by %-20s | Copies: %d/%d | %s%n" + RESET,
+                    type, m.getTitle(), m.getAuthor(),
+                    m.getAvailableCopies(), m.getTotalCopies(), avail);
+        }
+
+        System.out.println(LIGHT_BEIGE + "\n   Press Enter to continue..." + RESET);
+        sc.nextLine();
+    }
     private static void logoutAdmin() {
         if (currentAdmin != null) currentAdmin.logout();
         currentAdmin = null;
@@ -256,7 +428,58 @@ public class LibraryApp {
         delay(1800);
     }
 
+    private static void deleteMediaBySmallAdmin() {
+        printHeader("Delete Book/CD");
 
+        List<Media> allMedia = service.getAllMedia();  // استخدمنا الدالة الجديدة
+
+        if (allMedia.isEmpty()) {
+            printError("No media in the library yet.");
+            delay(1500);
+            return;
+        }
+
+        System.out.println(BEIGE + "   Select media to delete:" + RESET);
+        for (int i = 0; i < allMedia.size(); i++) {
+            Media m = allMedia.get(i);
+            String status = m.getAvailableCopies() == 0 ? " [NOT AVAILABLE]" : "";
+            System.out.println(BROWN + "   [" + (i + 1) + "] " + m + status + RESET);
+        }
+
+        System.out.print(DARK_BROWN + "   ➤ Choose number (0 to cancel): " + RESET);
+        int choice = getIntInput();
+
+        if (choice == 0) {
+            printSuccess("Deletion cancelled.");
+            delay(1200);
+            return;
+        }
+        if (choice < 1 || choice > allMedia.size()) {
+            printError("Invalid selection!");
+            delay(1500);
+            return;
+        }
+
+        Media toDelete = allMedia.get(choice - 1);
+
+        System.out.println(BEIGE + "   Selected: " + toDelete.getTitle() + RESET);
+        System.out.print(RED + "   Confirm permanent deletion? (y/N): " + RESET);
+        String confirm = sc.nextLine().trim();
+
+        if (!confirm.equalsIgnoreCase("y") && !confirm.equalsIgnoreCase("yes")) {
+            printError("Deletion cancelled.");
+            delay(1500);
+            return;
+        }
+
+        if (service.deleteMedia(toDelete.getId())) {
+            printSuccess("Media '" + toDelete.getTitle() + "' has been permanently deleted!");
+        } else {
+            printError("Cannot delete: This item is currently borrowed by a user!");
+        }
+
+        delay(2500);
+    }
     private static boolean userLogin() {
         printHeader("User Login");
         System.out.print(BROWN + "   Name: " + RESET);

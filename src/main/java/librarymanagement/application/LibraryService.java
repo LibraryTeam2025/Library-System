@@ -21,13 +21,37 @@ public class LibraryService {
         this.userService = userService;
         this.users.addAll(userService.getUsers());
         loadMediaFromFiles();
+
+        saveAllMedia();
         userService.setLibraryService(this);
         userService.loadBorrowedMedia();
         loadFines();
         for (LibraryUser user : users) checkOverdueMedia(user);
         saveFines();
     }
+    // أضف هذه الدالة في LibraryService.java
+    public List<Media> getAllMedia() {
+        return new ArrayList<>(mediaList);  // ترجع نسخة من القائمة الكاملة
+    }
+    public boolean deleteMedia(String mediaId) {
+        if (mediaId == null || mediaId.trim().isEmpty()) return false;
 
+        Media toRemove = getMediaById(mediaId);
+        if (toRemove == null) return false;
+
+        // تحقق إذا كانت مستعارة حاليًا
+        boolean isBorrowed = users.stream()
+                .anyMatch(user -> user.getBorrowedMedia().stream()
+                        .anyMatch(bm -> !bm.isReturned() && bm.getMedia().getId().equalsIgnoreCase(mediaId)));
+
+        if (isBorrowed) {
+            return false;  // ما يحذف إذا مستعارة
+        }
+
+        mediaList.removeIf(m -> m.getId().equalsIgnoreCase(mediaId));
+        saveAllMedia();  // يحفظ التغييرات في الملفات
+        return true;
+    }
     public LibraryUser getUserByName(String name) {
         if (name == null) return null;
         return users.stream().filter(u -> u.getName().equalsIgnoreCase(name)).findFirst().orElse(null);
@@ -83,7 +107,7 @@ public class LibraryService {
         checkOverdueMedia(user);
 
         if (user.isBlocked() || user.getFineBalance() > 0) {
-            media.returnCopy();
+            media.returnCopy(); // استرجاع النسخة لو المستخدم محظور
             return false;
         }
 
@@ -92,7 +116,7 @@ public class LibraryService {
 
         userService.saveBorrowedMedia();
         saveFines();
-        saveAllMedia();
+        saveAllMedia();  // أضف هذا السطر هنا
 
         return true;
     }
@@ -107,13 +131,16 @@ public class LibraryService {
         }
 
         saveAllMedia();
+
+
     }
 
     private void saveAllMedia() {
         try (PrintWriter pwBooks = new PrintWriter(new FileWriter(BOOKS_FILE, false))) {
             for (Media m : mediaList) {
                 if (m instanceof Book) {
-                    pwBooks.println(m.getId() + "|" + m.getTitle() + "|" + m.getAuthor() + "|" + m.getTotalCopies() + "|" + m.getAvailableCopies());
+                    pwBooks.println(m.getId() + "|" + m.getTitle() + "|" + m.getAuthor() + "|" +
+                            m.getTotalCopies() + "|" + m.getAvailableCopies());
                 }
             }
         } catch (IOException ignored) {}
@@ -121,7 +148,8 @@ public class LibraryService {
         try (PrintWriter pwCDs = new PrintWriter(new FileWriter(CDS_FILE, false))) {
             for (Media m : mediaList) {
                 if (m instanceof CD) {
-                    pwCDs.println(m.getId() + "|" + m.getTitle() + "|" + m.getAuthor() + "|" + m.getTotalCopies() + "|" + m.getAvailableCopies());
+                    pwCDs.println(m.getId() + "|" + m.getTitle() + "|" + m.getAuthor() + "|" +
+                            m.getTotalCopies() + "|" + m.getAvailableCopies());
                 }
             }
         } catch (IOException ignored) {}
