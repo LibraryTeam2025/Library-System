@@ -581,10 +581,11 @@ public class LibraryApp {
 
         currentUser = userService.login(name, pass);
         if (currentUser != null) {
+            currentUser.updateFineBalance();
             service.checkOverdueMedia(currentUser);
 
             if (currentUser.getFineBalance() > 0 || currentUser.hasOverdueItems()) {
-                printError("You have overdue items or unpaid fines!");
+                System.out.println("Warning: You have overdue items or unpaid fines!" + RESET);
                 System.out.println(RED + "   Total Fine: $" + String.format("%.2f", currentUser.getFineBalance()) + " NIS" + RESET);
                 delay(3000);
             } else {
@@ -595,6 +596,7 @@ public class LibraryApp {
             delay(1200);
             return true;
         }
+
         printError("Invalid name or password.");
         delay(1500);
         return false;

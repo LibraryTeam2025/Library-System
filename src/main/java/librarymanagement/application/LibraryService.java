@@ -128,9 +128,7 @@ public class LibraryService {
         if (user.getFineBalance() == 0 && !user.hasOverdueItems()) {
             user.setBlocked(false);
         }
-
         saveAllMedia();
-
 
     }
 

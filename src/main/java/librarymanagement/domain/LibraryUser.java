@@ -71,10 +71,16 @@ public class LibraryUser {
     }
 
     public void updateFineBalance() {
-        double newFines = calculateNewFines();
-        if (newFines > 0) fineBalance += newFines;
+        double total = 0;
+        for (BorrowedMedia bm : borrowedMedia) {
+            if (!bm.isReturned() && bm.isOverdue()) {
+                total += bm.calculateFine();
+            }
+        }
+        fineBalance = total;
         blocked = fineBalance > 0 || hasOverdueItems();
     }
+
 
     private void updateBlockedStatus() {
         blocked = fineBalance > 0 || hasOverdueItems();

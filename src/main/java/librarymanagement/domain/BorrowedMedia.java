@@ -43,10 +43,16 @@ public class BorrowedMedia {
         if (returned) return 0.0;
         long daysLate = getOverdueDays();
         if (daysLate <= 0) return 0.0;
-        int ratePerDay = media instanceof CD ? 20 : 10;
-        fine = daysLate * ratePerDay;
+
+        FineStrategy strategy;
+        if (media instanceof Book) strategy = new BookFineStrategy();
+        else if (media instanceof CD) strategy = new CDFineStrategy();
+        else throw new IllegalArgumentException("Unknown media type");
+
+        fine = strategy.calculateFine((int) daysLate);
         return fine;
     }
+
 
     public boolean isFineAdded() { return fineAdded; }
     public void setFineAdded(boolean fineAdded) { this.fineAdded = fineAdded; }
