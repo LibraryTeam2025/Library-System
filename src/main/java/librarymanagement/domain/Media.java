@@ -91,4 +91,5 @@ public abstract class Media {
     public String toString() {
         return getType() + " " + title + " - " + author + " (ID: " + id + ", Available: " + availableCopies + ")";
     }
+
 }

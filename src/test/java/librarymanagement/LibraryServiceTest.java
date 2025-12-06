@@ -4,6 +4,10 @@ import librarymanagement.application.*;
 import librarymanagement.domain.*;
 import org.junit.jupiter.api.*;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -64,7 +68,6 @@ class LibraryServiceExtendedTest {
         }
     }
 
-    // ====================== BorrowMedia ======================
     @Test
     void testBorrowMedia_Safe() {
         LibraryUser user = new LibraryUser("U1", "p", "u1@u.com");
@@ -142,7 +145,6 @@ class LibraryServiceExtendedTest {
         assertFalse(service.borrowMedia(null, null));
     }
 
-    // ====================== ReturnMedia ======================
     @Test
     void testReturnMedia_UnblocksUserAfterFinePaid() {
         LibraryUser user = new LibraryUser("U7", "p", "u7@u.com");
@@ -188,7 +190,6 @@ class LibraryServiceExtendedTest {
         assertThrows(NullPointerException.class, () -> service.returnMedia(u, null));
     }
 
-    // ====================== DeleteMedia ======================
     @Test
     void testDeleteMedia_NullOrEmpty() {
         assertFalse(service.deleteMedia(null));
@@ -220,7 +221,6 @@ class LibraryServiceExtendedTest {
         assertFalse(service.deleteMedia("NonExist"));
     }
 
-    // ====================== PayFine ======================
     @Test
     void testPayFine_Partial() {
         LibraryUser user = new LibraryUser("U10", "p", "u10@u.com");
@@ -256,7 +256,6 @@ class LibraryServiceExtendedTest {
         assertEquals(10.0, user.getFineBalance(), 0.001);
     }
 
-    // ====================== CheckOverdueMedia ======================
     @Test
     void testCheckOverdue_AlreadyChecked() {
         LibraryUser user = new LibraryUser("U13", "p", "u13@u.com");
@@ -311,7 +310,6 @@ class LibraryServiceExtendedTest {
         assertTrue(user.isBlocked());
     }
 
-    // ====================== SendReminder ======================
     @Test
     void testSendReminder_NoOverdue() {
         LibraryUser user = new LibraryUser("U15", "p", "u15@u.com");
@@ -372,8 +370,6 @@ class LibraryServiceExtendedTest {
     void testSendReminder_NoEmailAndNoOverdue() {
         LibraryUser user = new LibraryUser("NoEmail", "p", "");
         service.addUser(user);
-
-        // مسح الرسائل السابقة
         if (emailService instanceof EmailService es) {
             try {
                 Field f = es.getClass().getDeclaredField("sentMessages");
@@ -387,8 +383,6 @@ class LibraryServiceExtendedTest {
                 "No email sent if no email address or no overdue");
     }
 
-
-    // ====================== AddUser ======================
     @Test
     void testAddUser_NullChecks() {
         assertDoesNotThrow(() -> {
@@ -409,7 +403,6 @@ class LibraryServiceExtendedTest {
         assertEquals(initialSize, service.getUsers().size());
     }
 
-    // ====================== AddMedia ======================
     @Test
     void testAddMedia_NullChecks() {
         assertDoesNotThrow(() -> service.addMedia(null));
@@ -435,7 +428,6 @@ class LibraryServiceExtendedTest {
         assertEquals(initialSize, getPrivateListSize(service, "mediaList"));
     }
 
-    // ====================== SearchMedia ======================
     @Test
     void testSearchMedia_AllCases() {
         Book book = new Book("Java Basics", "John Doe", "J1", 1);
@@ -452,7 +444,7 @@ class LibraryServiceExtendedTest {
         assertEquals(1, service.searchMedia("Jane").size());
         assertEquals(0, service.searchMedia("Python").size());
     }
-    // ====================== ReturnMedia ======================
+
     @Test
     void testReturnMedia_NotBorrowed_MultipleBooks() {
         LibraryUser user = new LibraryUser("U25", "p", "u25@u.com");
@@ -463,19 +455,15 @@ class LibraryServiceExtendedTest {
         service.addMedia(book1);
         service.addMedia(book2);
 
-        // استعار المستخدم كتاب واحد فقط
         service.borrowMedia(user, book1);
 
-        // حاول إعادة كتاب لم يُستعار
         BorrowedMedia fake = new BorrowedMedia(book2, LocalDate.now(), LocalDate.now().plusDays(7));
         service.returnMedia(user, fake);
 
-        // book1 يجب أن يكون قد تم استعارته واستعادته، book2 لم يتغير
         assertEquals(0, book1.getAvailableCopies(), "Borrowed book1 copies should decrease");
         assertEquals(1, book2.getAvailableCopies(), "Not borrowed book2 copies should remain 1");
     }
 
-    // ====================== SearchMedia ======================
     @Test
     void testSearchMedia_PartialMatch() {
         Book book1 = new Book("Java Programming", "Alice", "J1", 1);
@@ -483,15 +471,12 @@ class LibraryServiceExtendedTest {
         service.addMedia(book1);
         service.addMedia(book2);
 
-        // البحث عن كلمة في العنوان
         List<Media> result = service.searchMedia("Programming");
         assertEquals(2, result.size(), "Should find both books containing 'Programming'");
 
-        // البحث عن المؤلف
         result = service.searchMedia("Alice");
         assertEquals(1, result.size(), "Should find book by author Alice");
 
-        // البحث عن كلمة غير موجودة
         result = service.searchMedia("Python");
         assertEquals(0, result.size(), "Should find no books for 'Python'");
     }
@@ -544,7 +529,7 @@ class LibraryServiceExtendedTest {
         service.addUser(user);
         user.addFine(50.0);
 
-        service.payFine(user, Double.MAX_VALUE); // دفع مبلغ كبير جداً
+        service.payFine(user, Double.MAX_VALUE);
         assertEquals(0.0, user.getFineBalance(), 0.001, "Fine should be fully cleared");
         assertFalse(user.isBlocked());
     }
@@ -574,9 +559,267 @@ class LibraryServiceExtendedTest {
         } catch (Exception ignored) {}
 
         ((List<String>) emailService.getSentMessages()).clear();
-        service.sendReminder(user); // هنا الفرع اللي user.email فارغ
+        service.sendReminder(user);
         assertTrue(emailService.getSentMessages().isEmpty());
     }
+    @Test
+    void testLoadBorrowedMedia_EmptyLineCoverage() throws IOException {
 
+        String usersPath = System.getProperty("java.io.tmpdir") + "/cov_users.txt";
+        String borrowedPath = System.getProperty("java.io.tmpdir") + "/cov_borrowed.txt";
+
+        try (PrintWriter pw = new PrintWriter(usersPath)) {
+            pw.println("UserX:pass:x@mail.com");
+        }
+
+        UserService us = new UserService(usersPath, borrowedPath);
+        LibraryService ls = new LibraryService(null, us);
+        us.setLibraryService(ls);
+
+        Book b = new Book("Book", "A", "ID1", 1);
+        ls.addMedia(b);
+
+        try (PrintWriter pw = new PrintWriter(borrowedPath)) {
+            pw.println("");
+            pw.println("UserX|ID1|2024-01-01|2024-01-05|false|0.0");
+        }
+
+        us.loadBorrowedMedia();
+
+        LibraryUser u = us.getUserByName("UserX");
+        assertNotNull(u);
+        assertEquals(1, u.getBorrowedMediaInternal().size());
+    }
+    @Test
+    void testLoadBorrowedMedia_PartsLessThan4_SkipsLine() throws IOException {
+
+        String usersPath = System.getProperty("java.io.tmpdir") + "/cov_users.txt";
+        String borrowedPath = System.getProperty("java.io.tmpdir") + "/cov_borrowed.txt";
+
+        // create user
+        try (PrintWriter pw = new PrintWriter(usersPath)) {
+            pw.println("UserX:pass:mail@mail.com");
+        }
+
+        UserService us = new UserService(usersPath, borrowedPath);
+        LibraryService ls = new LibraryService(null, us);
+        us.setLibraryService(ls);
+
+        Book b = new Book("Book", "A", "ID1", 1);
+        ls.addMedia(b);
+
+        try (PrintWriter pw = new PrintWriter(borrowedPath)) {
+            pw.println("UserX|ID1|2024-01-01");
+            pw.println("UserX|ID1|2024-01-01|2024-01-05|false|0.0");
+        }
+
+        us.loadBorrowedMedia();
+
+        LibraryUser u = us.getUserByName("UserX");
+        assertNotNull(u);
+
+        assertEquals(1, u.getBorrowedMediaInternal().size());
+    }
+    @Test
+    void testLoadMedia_PartsLessThan5_UsesTotalCopies() throws IOException {
+        String bookFile = "books.txt";
+
+        try (PrintWriter pw = new PrintWriter(bookFile)) {
+            pw.println("B001|Title|Author|7");
+        }
+
+        UserService us = new UserService("users.txt", "borrowed.txt");
+        LibraryService ls = new LibraryService(null, us);
+
+        Media m = ls.getMediaById("B001");
+        assertNotNull(m);
+
+        assertEquals(7, m.getAvailableCopies());
+    }
+    @Test
+    void testLoadMedia_PartsGreaterThanOrEqual5_ReadsAvailableCopies() throws IOException {
+        String bookFile = "books.txt";
+
+        try (PrintWriter pw = new PrintWriter(bookFile)) {
+            pw.println("B001|Title|Author|10|3");
+        }
+
+        UserService us = new UserService("users.txt", "borrowed.txt");
+        LibraryService ls = new LibraryService(null, us);
+
+        Media m = ls.getMediaById("B001");
+        assertNotNull(m);
+
+        assertEquals(3, m.getAvailableCopies());
+    }
+    @Test
+    void testSaveMediaToFile_BookOnly() throws IOException {
+        UserService us = new UserService("users.txt", "borrowed.txt");
+        LibraryService ls = new LibraryService(null, us);
+
+        Book b1 = new Book("Title1", "Author1", "B1", 1);
+        CD cd1 = new CD("Album1", "Artist1", "C1", 1);
+
+        ls.addMedia(b1);
+        ls.addMedia(cd1);
+        ls.saveAllMedia();
+
+        File booksFile = new File("books.txt");
+        List<String> lines = java.nio.file.Files.readAllLines(booksFile.toPath());
+
+        assertTrue(lines.stream().anyMatch(line -> line.contains("B1")));
+        assertFalse(lines.stream().anyMatch(line -> line.contains("C1")));
+    }
+
+    @Test
+    void testSaveMediaToFile_CDOnly() throws IOException {
+        UserService us = new UserService("users.txt", "borrowed.txt");
+        LibraryService ls = new LibraryService(null, us);
+
+        CD cd1 = new CD("Album1", "Artist1", "C1", 1);
+        Book b1 = new Book("Title1", "Author1", "B1", 1);
+
+        ls.addMedia(cd1);
+        ls.addMedia(b1);
+        ls.saveAllMedia();
+
+        File cdsFile = new File("cds.txt");
+        List<String> lines = java.nio.file.Files.readAllLines(cdsFile.toPath());
+
+        assertTrue(lines.stream().anyMatch(line -> line.contains("C1")));
+        assertFalse(lines.stream().anyMatch(line -> line.contains("B1")));
+    }
+
+    @Test
+    void testPayFine_NullUserOrNonPositiveAmount() {
+        LibraryUser user = new LibraryUser("U1", "pass", "u1@u.com");
+        service.addUser(user);
+        user.addFine(50.0);
+        service.payFine(user, 0.0);
+        assertEquals(50.0, user.getFineBalance(), 0.001);
+
+        service.payFine(user, -10.0);
+        assertEquals(50.0, user.getFineBalance(), 0.001);
+        assertDoesNotThrow(() -> service.payFine(null, 10.0));
+    }
+    @Test
+    void testPayFine_SetsFineAddedForOverdue() {
+        LibraryUser user = new LibraryUser("U2", "pass", "u2@u.com");
+        service.addUser(user);
+
+        Book book = new Book("Test Book", "Author", "B001", 1);
+        service.addMedia(book);
+
+        service.borrowMedia(user, book);
+        BorrowedMedia bm = user.getBorrowedMediaInternal().get(0);
+
+        try {
+            Field dueField = BorrowedMedia.class.getDeclaredField("dueDate");
+            dueField.setAccessible(true);
+            dueField.set(bm, LocalDate.now().minusDays(5));
+        } catch (Exception ignored) {}
+
+        assertFalse(bm.isFineAdded());
+
+        service.payFine(user, 10.0);
+        assertTrue(bm.isFineAdded(), "Fine should be marked as added for overdue item");
+    }
+    @Test
+    void testReturnMedia_UnblocksUserAfterReturnAndFinePaid() {
+        LibraryUser user = new LibraryUser("U3", "pass", "u3@u.com");
+        service.addUser(user);
+
+        Book book = new Book("BookX", "Author", "BX1", 1);
+        service.addMedia(book);
+
+        service.borrowMedia(user, book);
+        BorrowedMedia bm = user.getBorrowedMediaInternal().get(0);
+
+        try {
+            Field dueField = BorrowedMedia.class.getDeclaredField("dueDate");
+            dueField.setAccessible(true);
+            dueField.set(bm, LocalDate.now().minusDays(5));
+        } catch (Exception ignored) {}
+
+        service.checkOverdueMedia(user);
+
+        service.payFine(user, user.getFineBalance());
+
+        service.returnMedia(user, bm);
+
+        assertFalse(user.isBlocked(), "User should be unblocked after returning all items and paying fines");
+    }
+    @Test
+    void testBorrowMedia_BlockedOrWithFine() {
+        LibraryUser user = new LibraryUser("U4", "pass", "u4@u.com");
+        user.addFine(10.0);
+        service.addUser(user);
+
+        Book book = new Book("BookY", "Author", "BY1", 1);
+        service.addMedia(book);
+        assertFalse(service.borrowMedia(user, book));
+
+        user.setBlocked(true);
+        assertFalse(service.borrowMedia(user, book));
+    }
+    @Test
+    void testGetAvailableMedia() {
+        Book book1 = new Book("Book1", "Author1", "B1", 1);
+        Book book2 = new Book("Book2", "Author2", "B2", 1);
+        service.addMedia(book1);
+        service.addMedia(book2);
+
+        LibraryUser user = new LibraryUser("U1", "pass", "u1@u.com");
+        service.addUser(user);
+
+        service.borrowMedia(user, book1);
+
+        List<Media> available = service.getAvailableMedia();
+        assertTrue(available.contains(book2), "Book2 should be available");
+        assertFalse(available.contains(book1), "Book1 should not be available");
+    }
+    @Test
+    void testGetUserByName_NullInput() {
+        LibraryUser result = service.getUserByName(null);
+        assertNull(result, "Should return null if name is null");
+    }
+    @Test
+    void testGetAllMedia_EmptyAndNonEmpty() {
+
+        List<Media> result = service.getAllMedia();
+        assertNotNull(result, "Should not return null even if media list is empty");
+        assertTrue(result.isEmpty(), "Media list should be empty initially");
+
+        Book book = new Book("Test Book", "Author", "B1", 1);
+        service.addMedia(book);
+        result = service.getAllMedia();
+        assertEquals(1, result.size(), "Media list should contain 1 item");
+        assertEquals("B1", result.get(0).getId());
+    }
+
+    @Test
+    void testBorrowMedia_UserBlockedOrHasFines() {
+        Book book = new Book("Test Book", "Author", "B100", 1);
+        service.addMedia(book);
+
+        LibraryUser user1 = new LibraryUser("User1", "pass", "u1@test.com");
+        service.addUser(user1);
+        assertTrue(service.borrowMedia(user1, book));
+
+        LibraryUser user2 = new LibraryUser("User2", "pass", "u2@test.com");
+        user2.addFine(10.0);
+        service.addUser(user2);
+        assertFalse(service.borrowMedia(user2, book));
+
+        LibraryUser user3 = new LibraryUser("User3", "pass", "u3@test.com");
+        service.addUser(user3);
+        try {
+            Field blockedField = LibraryUser.class.getDeclaredField("blocked");
+            blockedField.setAccessible(true);
+            blockedField.setBoolean(user3, true);
+        } catch (Exception ignored) {}
+        assertFalse(service.borrowMedia(user3, book));
+    }
 
 }
+

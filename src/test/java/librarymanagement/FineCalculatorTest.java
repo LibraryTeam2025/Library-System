@@ -10,7 +10,6 @@ public class FineCalculatorTest {
     private CD cd;
     private Media unknownMedia;
 
-    // كائن من FineCalculator لأن الميثود مش static
     private final FineCalculator calculator = new FineCalculator();
 
     @BeforeEach
@@ -18,7 +17,6 @@ public class FineCalculatorTest {
         book = new Book("Clean Code", "Robert Martin", "B001", 5);
         cd = new CD("Greatest Hits", "Queen", "CD001", 3);
 
-        // وسيلة غير معروفة لاختبار الحالة الاستثنائية
         unknownMedia = new Media("Unknown", "Anon", "U999", 1, new BookFineStrategy()) {
             @Override
             public int getBorrowDays() {
@@ -66,7 +64,6 @@ public class FineCalculatorTest {
                 IllegalArgumentException.class,
                 () -> calculator.calculateFine(null, 5)
         );
-        // الكود فعليًا يرجع "Unknown media type"
         assertEquals("Unknown media type", ex.getMessage());
     }
 
@@ -94,6 +91,6 @@ public class FineCalculatorTest {
     @Test
     void testLargeNumberOfDays_DoesNotOverflow() {
         double fine = calculator.calculateFine(book, 1000);
-        assertEquals(10000.0, fine, 0.01); // 1000 يوم × 10
+        assertEquals(10000.0, fine, 0.01);
     }
 }

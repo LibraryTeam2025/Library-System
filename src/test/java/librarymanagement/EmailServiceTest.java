@@ -2,8 +2,6 @@ package librarymanagement;
 
 import librarymanagement.application.EmailService;
 import org.junit.jupiter.api.*;
-
-import javax.mail.AuthenticationFailedException;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.ArrayList;
@@ -144,13 +142,12 @@ class EmailServiceTest {
         assertEquals(0, emailService.getSentMessages().size());
     }
 
-    // ====================== تيستات إضافية لرفع الكفرج ======================
 
     @Test
     void testSendEmailWithEdgeCases() {
-        emailService.sendEmail("   ", "Sub", "Body");           // فارغ → لا يُرسل
-        emailService.sendEmail(null, "Sub2", "Body2");         // null → لا يُرسل
-        emailService.sendEmail("invalidemail", "Sub3", "Body3"); // بدون @ → لا يُرسل
+        emailService.sendEmail("   ", "Sub", "Body");
+        emailService.sendEmail(null, "Sub2", "Body2");
+        emailService.sendEmail("invalidemail", "Sub3", "Body3");
         assertEquals(0, emailService.getSentMessages().size());
     }
 
@@ -230,8 +227,55 @@ class EmailServiceTest {
     @Test
     void testSendEmail_WithInvalidCredentials() {
         EmailService es = new EmailService();
-        es.sendEmail("user@example.com", "Sub", "Body"); // يمر على فرع credentials ناقصة
+        es.sendEmail("user@example.com", "Sub", "Body");
         assertEquals(1, es.getSentMessages().size());
     }
+    @Test
+    void testSendEmailWithInvalidEmail() {
+        EmailService es = new EmailService();
+        es.sendEmail("", "Subject", "Body");
+        es.sendEmail("invalid", "Subject", "Body");
+        assertEquals(0, es.getSentMessages().size());
+    }
+
+    @Test
+    void testSendEmailConsoleOnlyBranch() {
+        EmailService es = new EmailService();
+        es.sendEmail("user@example.com", "Sub", "Body");
+        assertEquals(1, es.getSentMessages().size());
+    }
+    @Test
+    void testSendEmailSuccess() {
+        emailService.sendEmail("user@example.com", "Hello", "Body");
+        List<String> sent = emailService.getSentMessages();
+        assertEquals(1, sent.size());
+        assertTrue(sent.get(0).contains("To: user@example.com"));
+    }
+
+    @Test
+    void testSendEmailInvalidAddress() {
+        emailService.sendEmail("invalid", "Sub", "Body");
+        emailService.sendEmail("", "Sub", "Body");
+        emailService.sendEmail(null, "Sub", "Body");
+        List<String> sent = emailService.getSentMessages();
+        assertEquals(0, sent.size());
+    }
+
+    @Test
+    void testSendEmailWithMissingCredentials() throws Exception {
+        File file = new File("pass.env");
+        try (FileWriter fw = new FileWriter(file)) {
+            fw.write("");
+        }
+
+        EmailService es = new EmailService();
+        es.sendEmail("user@example.com", "Test Subject", "Body");
+
+        List<String> sent = es.getSentMessages();
+        assertEquals(1, sent.size());
+        assertTrue(sent.get(0).contains("user@example.com"));
+        file.delete();
+    }
+
 
 }

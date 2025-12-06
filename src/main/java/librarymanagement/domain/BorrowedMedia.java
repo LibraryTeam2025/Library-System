@@ -57,8 +57,12 @@ public class BorrowedMedia {
     public boolean isFineAdded() { return fineAdded; }
     public void setFineAdded(boolean fineAdded) { this.fineAdded = fineAdded; }
 
-    public double getFine() { return fine; }
-    public void setFine(double fine) { this.fine = fine; }
+    public double getFine() {
+        return fine;
+    }
+    public void setFine(double fine) {
+        this.fine = fine;
+    }
 
     public void returnMedia() {
         if (!returned) {
@@ -72,6 +76,7 @@ public class BorrowedMedia {
     public LocalDate getDueDate() { return dueDate; }
     public boolean isReturned() { return returned; }
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+
 
     @Override
     public String toString() {

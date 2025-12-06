@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.HashMap;
 import java.util.Map;
-
 import javax.mail.*;
 import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
@@ -101,6 +100,7 @@ public class EmailService {
         }
     }
     public void sendEmail(String toEmail, String subject, String message) {
+
         sendRealEmail(toEmail, subject, message);
     }
 

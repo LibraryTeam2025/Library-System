@@ -4,6 +4,7 @@ import librarymanagement.domain.*;
 import org.junit.jupiter.api.*;
 
 import java.io.*;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -89,5 +90,57 @@ public class AdminServiceTest {
         assertEquals(2, originalList.size());
         assertEquals(3, service.getAdmins().size());
         assertTrue(originalList.stream().anyMatch(a -> a.getEmail().equals("admin1@mail.com")));
+    }
+    @Test
+    void testConstructor_FileDoesNotExist_LoadsEmptyList() {
+        new File(TEST_FILE).delete();
+        AdminService service = new AdminService(TEST_FILE);
+        assertTrue(service.getAdmins().isEmpty());
+    }
+
+    @Test
+    void testLoadFromFile_CorruptedLine_IsIgnored() throws IOException {
+        try (PrintWriter pw = new PrintWriter(TEST_FILE)) {
+            pw.println("valid|valid@mail.com|pass|OWNER");
+            pw.println("invalid-line-without-pipes");
+            pw.println("another|another@mail.com|pass|SMALL_ADMIN");
+        }
+
+        AdminService service = new AdminService(TEST_FILE);
+        assertEquals(2, service.getAdmins().size());
+    }
+
+    @Test
+    void testLoadFromFile_IOException_IsHandledSilently() throws IOException {
+        File unreadable = new File(TEST_FILE);
+        unreadable.createNewFile();
+        unreadable.setReadable(false);
+        assertDoesNotThrow(() -> new AdminService(TEST_FILE));
+
+        unreadable.setReadable(true);
+        unreadable.delete();
+    }
+
+    @Test
+    void testSaveToFile_IOException_IsHandledSilently() throws IOException {
+        File file = new File(TEST_FILE);
+        file.createNewFile();
+        file.setWritable(false);
+
+        AdminService service = new AdminService(TEST_FILE);
+        assertDoesNotThrow(() -> service.addSuperAdmin("test", "test@mail.com", "pass"));
+
+        file.setWritable(true);
+        file.delete();
+    }
+
+    @Test
+    void testGetAdmins_ReturnsIndependentCopy_NotAffectedByExternalModifications() {
+        List<Admin> externalList = service.getAdmins();
+        assertEquals(2, externalList.size());
+
+        externalList.clear();
+
+        assertEquals(2, service.getAdmins().size());
     }
 }

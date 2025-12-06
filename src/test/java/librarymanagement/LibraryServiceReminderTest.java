@@ -25,20 +25,16 @@ public class LibraryServiceReminderTest {
     void setup() {
         MockitoAnnotations.openMocks(this);
 
-        // ملفات مؤقتة عشان ما يأثرش على ملفات المشروع الحقيقية
         userService = new UserService("test_users_reminder.txt", "test_borrowed_reminder.txt");
         service = new LibraryService(mockEmail, userService);
-        userService.setLibraryService(service); // مهم جدًا!
+        userService.setLibraryService(service);
 
         user = new LibraryUser("Roaa", "123456", "roaa@example.com");
 
-        // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
-        // الكتاب لازم 4 باراميترات (title, author, isbn, copies)
         book = new Book("Java Programming", "James Gosling", "J001", 5);
-        // ←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←←
+
 
         service.addMedia(book);
-        // استخدم addUser من UserService وليس من LibraryService
         userService.addUser("Roaa", "123456", "roaa@example.com");
     }
 
@@ -50,38 +46,31 @@ public class LibraryServiceReminderTest {
 
     @Test
     void testSendReminder_WhenOverdue_SendsEmail() throws Exception {
-        // استعارة الكتاب
         assertTrue(service.borrowMedia(user, book));
 
-        // جلب العنصر المستعار
         BorrowedMedia borrowed = user.getBorrowedMedia().get(0);
 
-        // تعديل dueDate ليكون overdue (باستخدام Reflection)
         var dueDateField = BorrowedMedia.class.getDeclaredField("dueDate");
         dueDateField.setAccessible(true);
-        dueDateField.set(borrowed, LocalDate.now().minusDays(3)); // متأخر 3 أيام
+        dueDateField.set(borrowed, LocalDate.now().minusDays(3));
 
-        // التأكد إن fineAdded = false (لو موجود الحقل)
         try {
             var fineAddedField = BorrowedMedia.class.getDeclaredField("fineAdded");
             fineAddedField.setAccessible(true);
             fineAddedField.set(borrowed, false);
         } catch (NoSuchFieldException ignored) {}
 
-        // تنفيذ التذكير
         service.sendReminder(user);
 
-        // التحقق من إرسال الإيميل
         verify(mockEmail).sendEmail(
                 eq("roaa@example.com"),
-                anyString(),                    // العنوان ممكن يختلف
-                contains("overdue")             // النص يحتوي على كلمة overdue
+                anyString(),
+                contains("overdue")
         );
     }
 
     @Test
     void testSendReminder_WhenNoOverdue_DoesNotSend() {
-        // لا نستعير أي كتاب → مفيش overdue
         service.sendReminder(user);
 
         verify(mockEmail, never()).sendEmail(anyString(), anyString(), anyString());
@@ -95,7 +84,7 @@ public class LibraryServiceReminderTest {
 
     @Test
     void testSendReminder_WhenEmailEmpty_DoesNotSend() {
-        LibraryUser userNoEmail = new LibraryUser("Ahmed", "pass", ""); // إيميل فاضي
+        LibraryUser userNoEmail = new LibraryUser("Ahmed", "pass", "");
         userService.addUser("Ahmed", "pass", "");
 
         service.sendReminder(userNoEmail);
@@ -111,7 +100,6 @@ public class LibraryServiceReminderTest {
         service.borrowMedia(user, book);
         service.borrowMedia(user, book2);
 
-        // اجعل الكتابين overdue
         for (BorrowedMedia bm : user.getBorrowedMedia()) {
             var f = BorrowedMedia.class.getDeclaredField("dueDate");
             f.setAccessible(true);
@@ -125,7 +113,6 @@ public class LibraryServiceReminderTest {
 
         service.sendReminder(user);
 
-        // يرسل إيميل واحد فقط (مهما كان عدد العناصر المتأخرة)
         verify(mockEmail, times(1)).sendEmail(anyString(), anyString(), anyString());
     }
 }

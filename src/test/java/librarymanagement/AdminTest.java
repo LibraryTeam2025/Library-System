@@ -3,7 +3,6 @@ package librarymanagement;
 import librarymanagement.domain.*;
 import librarymanagement.application.*;
 import org.junit.jupiter.api.*;
-
 import java.io.*;
 import java.time.LocalDate;
 
@@ -34,8 +33,6 @@ public class AdminTest {
         userService = new UserService(TEST_USERS, TEST_BORROWED);
         libraryService = new LibraryService(emailService, userService);
         userService.setLibraryService(libraryService);
-
-        // تحميل البيانات المخزنة (مهم جدًا!)
         userService.loadBorrowedMedia();
     }
 
@@ -58,8 +55,6 @@ public class AdminTest {
             pw.write(content);
         }
     }
-
-    // ====================== Admin Tests ======================
 
     @Test
     void testAdminLoginSuccess() {
@@ -88,9 +83,6 @@ public class AdminTest {
         Admin admin = adminService.login("OwnerAdmin", "owner123");
         assertEquals("OwnerAdmin (OWNER)", admin.toString());
     }
-
-    // ====================== Library + User Tests (High Coverage) ======================
-
     @Test
     void testAddUserAndLogin() {
         boolean added = userService.addUser("Khalid", "123456", "khalid@mail.com");
@@ -105,7 +97,7 @@ public class AdminTest {
     void testCannotAddDuplicateUser() {
         userService.addUser("Sara", "pass", "sara@mail.com");
         boolean addedAgain = userService.addUser("SARA", "pass", "other@mail.com");
-        assertFalse(addedAgain); // لأن الاسم موجود (case insensitive)
+        assertFalse(addedAgain);
     }
 
     @Test
@@ -149,10 +141,10 @@ public class AdminTest {
         bm.setFineAdded(false);
 
         libraryService.checkOverdueMedia(user);
-        assertEquals(40.0, user.getFineBalance(), 0.01); // 4 أيام × 10
+        assertEquals(40.0, user.getFineBalance(), 0.01);
 
         libraryService.checkOverdueMedia(user);
-        assertEquals(40.0, user.getFineBalance(), 0.01); // ما زادش تاني
+        assertEquals(40.0, user.getFineBalance(), 0.01);
     }
 
     @Test
@@ -173,5 +165,83 @@ public class AdminTest {
     void testAddCD() {
         CD cd = new CD("Thriller", "Michael Jackson", "CD001", 5);
         assertTrue(libraryService.addMedia(cd));
+    }
+    @Test
+    void testAdminLogin_WrongPassword_Fails_ButKeepsCurrentSession() {
+        Admin admin = adminService.login("owner@lib.com", "owner123");
+        assertTrue(admin.isLoggedIn());
+
+        boolean result = admin.login("owner@lib.com", "totally_wrong");
+        assertFalse(result);
+        assertTrue(admin.isLoggedIn());
+    }
+
+    @Test
+    void testAdminLogin_WrongPassword_WithName_Fails_ButKeepsLoggedIn() {
+        Admin admin = adminService.login("smalladmin", "small456");
+        assertTrue(admin.isLoggedIn());
+
+        boolean result = admin.login("SMALLadmin", "wrong_pass");
+        assertFalse(result);
+        assertTrue(admin.isLoggedIn());
+    }
+
+    @Test
+    void testAdminLogin_NonExistentIdentifier_Fails_OnExistingAdmin() {
+        Admin admin = adminService.login("Ahmad", "pass789");
+        assertTrue(admin.isLoggedIn());
+
+        boolean result = admin.login("GhostUser", "pass789");
+        assertFalse(result);
+        assertTrue(admin.isLoggedIn());
+    }
+    @Test
+    void testAdminRoles_BothOwnerAndSmallAdmin() {
+        Admin owner = adminService.login("owner@lib.com", "owner123");
+        Admin small = adminService.login("smalladmin", "small456");
+
+        assertAll("Owner checks",
+                () -> assertTrue(owner.isOwner()),
+                () -> assertFalse(owner.isSmallAdmin())
+        );
+
+        assertAll("Small Admin checks",
+                () -> assertFalse(small.isOwner()),
+                () -> assertTrue(small.isSmallAdmin())
+        );
+    }
+    @Test
+    void testGetRole_ReturnsCorrectRoleForAllAdmins() {
+        Admin owner = adminService.login("OwnerAdmin", "owner123");
+        Admin small1 = adminService.login("smalladmin", "small456");
+        Admin small2 = adminService.login("Ahmad", "pass789");
+
+        assertAll("Admin roles are correctly returned",
+                () -> assertEquals(Admin.Role.OWNER, owner.getRole()),
+                () -> assertEquals(Admin.Role.SMALL_ADMIN, small1.getRole()),
+                () -> assertEquals(Admin.Role.SMALL_ADMIN, small2.getRole())
+        );
+    }
+    @Test
+    void testAdminRoleMethods_FullCoverage() {
+        Admin owner = adminService.login("OwnerAdmin", "owner123");
+        Admin small = adminService.login("Ahmad", "pass789");
+
+        assertAll("Owner Admin",
+                () -> assertEquals(Admin.Role.OWNER, owner.getRole()),
+                () -> assertTrue(owner.isOwner()),
+                () -> assertFalse(owner.isSmallAdmin())
+        );
+
+        assertAll("Small Admin",
+                () -> assertEquals(Admin.Role.SMALL_ADMIN, small.getRole()),
+                () -> assertFalse(small.isOwner()),
+                () -> assertTrue(small.isSmallAdmin())
+        );
+    }
+    @Test
+    void coverGetRoleMethodExplicitly() {
+        assertEquals(Admin.Role.OWNER, adminService.login("owner@lib.com", "owner123").getRole());
+        assertEquals(Admin.Role.SMALL_ADMIN, adminService.login("smalladmin", "small456").getRole());
     }
 }
