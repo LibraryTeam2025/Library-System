@@ -1,2 +1,4 @@
+B001|Test Book|Author|1|0
 J001|Java Programming|James Gosling|5|5
 C002|Clean Code|Robert Martin|3|2
+B002|Book2|Author2|1|1

@@ -11,11 +11,13 @@ import javax.mail.internet.MimeMessage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 public class EmailService {
     private final List<String> sentMessages = new ArrayList<>();
     private final String fromEmail;
     private final String appPassword;
+    private static final Logger logger = Logger.getLogger(EmailService.class.getName());
 
     public EmailService() {
         Map<String, String> env = loadEnvFromFile();
@@ -23,7 +25,7 @@ public class EmailService {
         this.appPassword = env.getOrDefault("SMTP_PASSWORD", System.getenv("SMTP_PASSWORD"));
 
         if (fromEmail == null || appPassword == null || fromEmail.isEmpty() || appPassword.isEmpty()) {
-            System.out.println("Warning: Email data not found! Emails will be printed to the console only.");
+            logger.warning("Email data not found! Emails will be printed to the console only.");
 
         }
     }
@@ -32,7 +34,7 @@ public class EmailService {
         Map<String, String> map = new HashMap<>();
         File file = new File("pass.env");
         if (!file.exists()) {
-            System.out.println("pass.env file not found in the project folder!");
+            logger.warning("pass env file not found in the project folder!");
             return map;
         }
 
@@ -43,11 +45,11 @@ public class EmailService {
                 if (line.isEmpty() || line.startsWith("#")) continue;
                 String[] parts = line.split("=", 2);
                 if (parts.length == 2) {
-                    map.put(parts[0].trim(), parts[1].trim().replaceAll("\"", ""));
+                    map.put(parts[0].trim(), parts[1].trim().replace("\"", ""));
                 }
             }
         } catch (Exception e) {
-            System.out.println("Failed to read pass.env file: " + e.getMessage());
+            logger.severe("Failed to read pass.env file: " + e.getMessage());
 
         }
         return map;

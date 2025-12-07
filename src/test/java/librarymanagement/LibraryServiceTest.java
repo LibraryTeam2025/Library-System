@@ -38,7 +38,6 @@ class LibraryServiceExtendedTest {
             @Override public void loadBorrowedMedia() {}
             @Override public void saveBorrowedMedia() {}
             @Override public void saveUsers() {}
-            public void loadUsers() {}
         };
     }
 
