@@ -29,7 +29,9 @@ class LibraryServiceExtendedTest {
             public void sendEmail(String toEmail, String subject, String message) {
                 sentMessages.add(message);
             }
+            @Override
             public List<String> getSentMessages() {
+
                 return new ArrayList<>(sentMessages);
             }
         };

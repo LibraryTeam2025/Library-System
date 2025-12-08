@@ -1,8 +1,11 @@
 package librarymanagement.domain;
 
 public class FineCalculator {
+    private FineCalculator() {
 
+    }
     public static int calculateFine(Media media, int overdueDays) {
+
         FineStrategy strategy;
 
         if (media instanceof Book) {
