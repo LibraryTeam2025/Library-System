@@ -66,6 +66,7 @@ public class LibraryUser {
                 bm.setFineAdded(true);
             }
         }
+        if (total > 0) addFine(total);
         return total;
     }
 
